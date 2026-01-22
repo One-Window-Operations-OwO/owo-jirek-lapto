@@ -638,25 +638,45 @@ export default function Home() {
       stempel: evaluationForm["T"],
     };
 
-    // 3. Fire Background Process (Don't await)
-    backgroundSubmitProcess(session, payload, currentItem, parsedData);
+    // 3. Branching Logic
+    if (enableManualNote) {
+      // SLOW PATH: Wait for result, then show Modal
+      // We await this so the UI stays "loading" until the modal is ready
+      await handleSubmissionProcess(
+        session,
+        payload,
+        currentItem,
+        parsedData,
+        true, // shouldWaitUser
+      );
+      setIsSubmitting(false); // Re-enable UI for Modal interaction
+    } else {
+      // FAST PATH: Optimistic Update
+      // Fire and forget the background process
+      handleSubmissionProcess(
+        session,
+        payload,
+        currentItem,
+        parsedData,
+        false, // shouldWaitUser
+      );
 
-    // 4. Optimistic Update (Move to next item immediately)
-    if (!enableManualNote) {
+      // Optimistic Skip
       handleSkip(false);
-    }
 
-    // 5. Re-enable buttons after short delay (to prevent accidental double click on NEXT item)
-    setTimeout(() => {
-      setIsSubmitting(false);
-    }, 500);
+      // Re-enable buttons after short delay
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 500);
+    }
   };
 
-  const backgroundSubmitProcess = async (
+  const handleSubmissionProcess = async (
     session: string,
     payload: any,
     item: any,
     currentParsedData: ExtractedData,
+    shouldWaitUser: boolean,
   ) => {
     try {
       const res = await fetch("/api/datasource/submit", {
@@ -667,16 +687,16 @@ export default function Home() {
 
       const json = await res.json();
       if (json.success) {
-        console.log(`Submitted ${item.npsn} successfully`);
+        if (shouldWaitUser) {
+          console.log(`Submitted ${item.npsn} (Manual Note Flow)`);
+        } else {
+          console.log(`Submitted ${item.npsn} (Background)`);
+        }
+
         let finalNote = "";
 
         // Only fetch view-form if needed (e.g. for rejected items or logging)
-        // If Rejected, fetch reason from view_form
         try {
-          // If we want to capture the rejection reason for DAC, we might need to fetch this.
-          // But if we are already optimistic skipping, we can't really "Ask" the user anymore without disrupting.
-          // We assume automated notes or just standard "See Datasource" if complexity is high.
-          // But let's try to fetch it for completeness in DAC log.
           const viewRes = await fetch("/api/datasource/view-form", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -715,20 +735,25 @@ export default function Home() {
             }
           }
         } catch (err) {
-          console.error("Error fetching view form in background", err);
+          console.error("Error fetching view form in process", err);
         }
 
-        // DAC Session Refresh Logic (Simplified for background)
+        // DAC Session Refresh Logic
         let currentDacSession = localStorage.getItem("dac_session");
         const storedDac = localStorage.getItem("login_cache_dac");
         if (storedDac) {
           try {
-            const { username: dacUser, password: dacPass } = JSON.parse(storedDac);
+            const { username: dacUser, password: dacPass } =
+              JSON.parse(storedDac);
             if (dacUser && dacPass) {
               const loginRes = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: dacUser, password: dacPass, type: "dac" }),
+                body: JSON.stringify({
+                  username: dacUser,
+                  password: dacPass,
+                  type: "dac",
+                }),
               });
               const loginJson = await loginRes.json();
               if (loginJson.success) {
@@ -756,21 +781,33 @@ export default function Home() {
             bapp_date: formatToDacISO(verificationDate),
           };
 
-          // Background save to DAC
-          await fetch("/api/save-approval", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(approvalPayload),
-          }).catch(err => console.error("Background DAC Save Error", err));
+          if (shouldWaitUser) {
+            // MANUAL FLOW: Update State & Show Modal
+            setPendingApprovalData(approvalPayload);
+            setManualNote(finalNote);
+            setShowNoteModal(true);
+          } else {
+            // BACKGROUND FLOW: Save Immediately
+            await fetch("/api/save-approval", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(approvalPayload),
+            }).catch((err) =>
+              console.error("Background DAC Save Error", err),
+            );
+          }
         }
-
       } else {
-        console.error("Background Submit Failed", json.message);
-        // Since we already skipped, we might need a way to notify user? 
-        // For now, console log is the best we can do without disrupting flow.
+        console.error("Submit Failed", json.message);
+        if (shouldWaitUser) {
+          alert(`Gagal submit: ${json.message}`);
+        }
       }
     } catch (e) {
-      console.error("Background Submit Error", e);
+      console.error("Submit Process Error", e);
+      if (shouldWaitUser) {
+        alert("Terjadi kesalahan saat submit.");
+      }
     }
   };
   const executeSaveApproval = async (payload: any) => {
