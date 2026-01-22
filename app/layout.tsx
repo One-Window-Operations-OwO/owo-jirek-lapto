@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DAC Verifier",
+  title: "Zyrex Verifier",
   description: "OWO App",
 };
 
