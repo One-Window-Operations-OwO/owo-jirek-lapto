@@ -192,6 +192,9 @@ export default function Home() {
     console.log("Current ID State Updated:", id);
   }, [id]);
 
+  // Cache State
+  const prefetchCache = useRef<Map<string, any>>(new Map());
+
   const fetchScrapedData = async () => {
     const dsSession = localStorage.getItem("datasource_session");
     // We can filter by username/verifikator if needed, but for now grab all or server filters
@@ -215,7 +218,7 @@ export default function Home() {
         if (typeof window !== "undefined" && window.location.search.includes("reverse=true")) {
           filtered.reverse();
         }
-        console.log(filtered)
+
         setSheetData(filtered);
         setCurrentTaskIndex(0);
       } else {
@@ -226,12 +229,19 @@ export default function Home() {
     }
   };
 
-  const handleSelectItem = async (item: any) => {
-    setDetailLoading(true);
-    setParsedData(null);
+  // Prefetch Effect
+  useEffect(() => {
+    if (sheetData.length > 0 && currentTaskIndex + 1 < sheetData.length) {
+      const nextItem = sheetData[currentTaskIndex + 1];
+      prefetchItem(nextItem);
+    }
+  }, [sheetData, currentTaskIndex]);
+
+  const prefetchItem = async (item: any) => {
+    const cacheKey = `${item.npsn}_${item.no_bapp}`;
+    if (prefetchCache.current.has(cacheKey)) return;
 
     const currentSessionId = localStorage.getItem("dac_session");
-
     try {
       const res = await fetch("/api/get-detail", {
         method: "POST",
@@ -246,55 +256,117 @@ export default function Home() {
       const json = await res.json();
       if (json.success) {
         const { summary, awb, comments, extractedId } = json.data;
-        const fetchedDate = awb.UpdatedAt
-          ? awb.UpdatedAt.substring(0, 10)
-          : new Date().toISOString().split("T")[0];
-        setSnBapp(awb.OrderID);
-        // Mapping Foto dari ListPhotoJSON
+
+        // Image Preloading Logic
         const photoList = awb.ListPhotoJSON || {};
-        const mappedImages = Object.keys(photoList)
-          .filter((key) => photoList[key]) // Hanya ambil yang ada URL-nya
-          .map((key) => ({
-            src: photoList[key],
-            title: key.toUpperCase(),
-          }));
-        setVerificationDate(fetchedDate);
-        // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
-        if (awb.SignatureURL)
-          mappedImages.push({ src: awb.SignatureURL, title: "SIGNATURE" });
-        const historyComments = (comments || []).map((c: any) => ({
-          date: c.CreatedAt,
-          status: "REVISI/DITOLAK",
-          user: c.commenter_name || "Verifier",
-          note: c.comment,
-        }));
-        setSelectedSn(awb.OrderID);
-        setParsedData({
-          school: {
-            npsn: summary.npsn || "-",
-            nama_sekolah: summary.school_name || "-",
-            kabupaten: summary.kabupaten || "-",
-            provinsi: summary.provinsi || "-",
-            alamat: awb.ActualReceiverAddress || "-",
-          },
-          item: {
-            serial_number: awb.OrderID || "-",
-            nama_barang: summary.school_name || "-",
-          },
-          images: mappedImages,
-          // Gabungkan riwayat logistik (AWB) dan riwayat approval (Comment) jika perlu
-          // Di sini kita tampilkan riwayat logistik dari awb.History
-          history: [...historyComments],
-          extractedId: extractedId,
-          resi: awb.ConnoteNumber || summary.nomor_resi,
-          bapp_id: summary.bapp_id,
-          bapp_date: fetchedDate,
+        const imageUrls = Object.keys(photoList)
+          .filter((key) => photoList[key])
+          .map((key) => photoList[key]);
+
+        if (awb.SignatureURL) imageUrls.push(awb.SignatureURL);
+
+        // Extract images from extracted HTML if available
+        // Note: parsing HTML here just for images might be expensive, 
+        // relying mainly on API data for preloading is safer/faster.
+
+        console.log(`Prefetching images for ${item.npsn}:`, imageUrls.length);
+
+        imageUrls.forEach((url: string) => {
+          const img = new Image();
+          img.src = url;
         });
+
+        prefetchCache.current.set(cacheKey, json);
       }
     } catch (err) {
-      console.error("Gagal menarik data detail Zyrex:", err);
-    } finally {
-      setDetailLoading(false);
+      console.error("Prefetch error:", err);
+    }
+  };
+
+  const handleSelectItem = async (item: any) => {
+    setCurrentImageIndex(null); // Reset image viewer
+
+    const cacheKey = `${item.npsn}_${item.no_bapp}`;
+    const currentSessionId = localStorage.getItem("dac_session");
+
+    // Check cache first
+    if (prefetchCache.current.has(cacheKey)) {
+      console.log("Using cached data for", item.npsn);
+      const json = prefetchCache.current.get(cacheKey);
+      setParsedDataFromJSON(json, item); // Extracted helper
+      // No loading state needed
+    } else {
+      // Miss: Fetch manually
+      setDetailLoading(true);
+      setParsedData(null);
+
+      try {
+        const res = await fetch("/api/get-detail", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            npsn: item.npsn,
+            session_id: currentSessionId,
+            no_bapp: item.no_bapp,
+          }),
+        });
+        const json = await res.json();
+        setParsedDataFromJSON(json, item);
+      } catch (err) {
+        console.error("Gagal menarik data detail Zyrex:", err);
+      } finally {
+        setDetailLoading(false);
+      }
+    }
+  };
+
+  const setParsedDataFromJSON = (json: any, item: any) => {
+    if (json.success) {
+      const { summary, awb, comments, extractedId } = json.data;
+      const fetchedDate = awb.UpdatedAt
+        ? awb.UpdatedAt.substring(0, 10)
+        : new Date().toISOString().split("T")[0];
+      setSnBapp(awb.OrderID);
+      // Mapping Foto dari ListPhotoJSON
+      const photoList = awb.ListPhotoJSON || {};
+      const mappedImages = Object.keys(photoList)
+        .filter((key) => photoList[key]) // Hanya ambil yang ada URL-nya
+        .map((key) => ({
+          src: photoList[key],
+          title: key.toUpperCase(),
+        }));
+      setVerificationDate(fetchedDate);
+      // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
+      if (awb.SignatureURL)
+        mappedImages.push({ src: awb.SignatureURL, title: "SIGNATURE" });
+      const historyComments = (comments || []).map((c: any) => ({
+        date: c.CreatedAt,
+        status: "REVISI/DITOLAK",
+        user: c.commenter_name || "Verifier",
+        note: c.comment,
+      }));
+      setSelectedSn(awb.OrderID);
+      setParsedData({
+        school: {
+          npsn: summary.npsn || "-",
+          nama_sekolah: summary.school_name || "-",
+          kabupaten: summary.kabupaten || "-",
+          provinsi: summary.provinsi || "-",
+          alamat: awb.ActualReceiverAddress || "-",
+        },
+        item: {
+          serial_number: awb.OrderID || "-",
+          nama_barang: summary.school_name || "-",
+        },
+        images: mappedImages,
+        // Gabungkan riwayat logistik (AWB) dan riwayat approval (Comment) jika perlu
+        // Di sini kita tampilkan riwayat logistik dari awb.History
+        history: [...historyComments],
+        extractedId: extractedId,
+        resi: awb.ConnoteNumber || summary.nomor_resi,
+        bapp_id: summary.bapp_id,
+        bapp_date: fetchedDate,
+      });
     }
   };
   const parseHtml = (html: string, initialExtractedId: string) => {
@@ -526,7 +598,7 @@ export default function Home() {
 
     const currentItem = sheetData[currentTaskIndex];
 
-    setIsSubmitting(true);
+    // setIsSubmitting(true); // Optimistic: don't block
 
     try {
       // sn_bapp Logic:
@@ -571,6 +643,13 @@ export default function Home() {
           cookie: session,
         }),
       });
+
+      // Optimistic Update: If not manual note, move to next item immediately
+      if (!enableManualNote) {
+        handleSkip(false);
+        // Don't wait for the rest of logic to update UI
+        // But continue processing in background
+      }
 
       const json = await res.json();
       if (json.success) {
@@ -697,8 +776,9 @@ export default function Home() {
             setManualNote(finalNote);
             setShowNoteModal(true);
           } else {
+            // Already skipped optimistically
             await executeSaveApproval(approvalPayload);
-            handleSkip(false);
+            // handleSkip(false); // REMOVED
           }
         }
       } else {
@@ -709,7 +789,7 @@ export default function Home() {
       console.error("Submit error", e);
       alert("Terjadi kesalahan saat submit.");
     } finally {
-      setIsSubmitting(false);
+      // setIsSubmitting(false); // Optimistic: no block
     }
   };
   const executeSaveApproval = async (payload: any) => {
