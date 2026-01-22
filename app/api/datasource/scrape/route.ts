@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     // 9: ID (href link)
     // Note: Removed </tr> check as it might be missing in some rows
     const regex =
-      /<tr>\s*<td>\s*(\d+)\s*<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>.*?>(.*?)<\/button>.*?<td>.*?>(.*?)<\/button>.*?<td>\s*(.*?)\s*<\/td>.*?<td>\s*(.*?)\s*<\/td>.*?href=.*?\/form\/(\d+)/gs;
+      /<tr>\s*<td>\s*(\d+)\s*<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>.*?>(.*?)<\/button>.*?<td>.*?>(.*?)<\/button>.*?<td>\s*(.*?)\s*<\/td>.*?<td>\s*(.*?)\s*<\/td>.*?href=.*?\/form\/(\d+).*?<button[^>]*>\s*(.*?)\s*<\/button>/gs;
 
     const results = [];
     let match;
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
         npsn: clean(match[7]),
         nama_sekolah: clean(match[8]),
         action_id: clean(match[9]),
+        status: clean(match[10]),
       });
     }
 
