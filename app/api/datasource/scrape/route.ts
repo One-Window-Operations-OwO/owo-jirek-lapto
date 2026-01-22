@@ -52,9 +52,7 @@ export async function POST(request: Request) {
     // 8: Sekolah
     // 9: ID (href link)
     // Note: Removed </tr> check as it might be missing in some rows
-    const regex =
-      /<tr[^>]*>\s*<td[^>]*>\s*(\d+)\s*<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(?:<a[^>]*href="[^"]*\/form\/(\d+)")?.*?<button[^>]*>\s*(.*?)\s*<\/button>/gs;
-
+    const regex = /<tr[^>]*>\s*<td[^>]*>\s*(\d+)\s*<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(?:<a[^>]*href="[^"]*\/form\/(\d+)")?.*?<button[^>]*>\s*(.*?)\s*<\/button>/gs;
     const results = [];
     let match;
 
@@ -70,7 +68,7 @@ export async function POST(request: Request) {
         serial_number: clean(match[6]),
         npsn: clean(match[7]),
         nama_sekolah: clean(match[8]),
-        action_id: clean(match[9]),
+        action_id: match[9] ? clean(match[9]) : null,
         status: clean(match[10]),
       });
     }
