@@ -212,7 +212,7 @@ export default function Home() {
       });
       const json = await res.json();
       if (json.success) {
-        const filtered = json.data.filter((item: any) => item.type === "Zyrex" && item.status === "PROSES" && item.npsn === "10100871");
+        const filtered = json.data.filter((item: any) => item.type === "Zyrex" && item.status === "PROSES");
 
         if (
           typeof window !== "undefined" &&
