@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     // 9: ID (href link)
     // Note: Removed </tr> check as it might be missing in some rows
     const regex =
-      /<tr>\s*<td>\s*(\d+)\s*<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>.*?>(.*?)<\/button>.*?<td>.*?>(.*?)<\/button>.*?<td>\s*(.*?)\s*<\/td>.*?<td>\s*(.*?)\s*<\/td>.*?href=.*?\/form\/(\d+).*?<button[^>]*>\s*(.*?)\s*<\/button>/gs;
+      /<tr[^>]*>\s*<td[^>]*>\s*(\d+)\s*<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>.*?>(.*?)<\/button>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(.*?)\s*<\/td>.*?<td[^>]*>\s*(?:<a[^>]*href="[^"]*\/form\/(\d+)")?.*?<button[^>]*>\s*(.*?)\s*<\/button>/gs;
 
     const results = [];
     let match;
