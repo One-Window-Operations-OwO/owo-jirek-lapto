@@ -5,12 +5,16 @@ interface StickyInfoBoxProps {
   schoolData: Record<string, string>;
   itemData: Record<string, string>;
   history: any[];
+  date?: string;
+  setDate?: (date: string) => void;
 }
 
 export default function StickyInfoBox({
   schoolData,
   itemData,
   history,
+  date,
+  setDate,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
@@ -82,14 +86,6 @@ export default function StickyInfoBox({
           </div>
           <div>
             <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Kecamatan
-            </div>
-            <div className="text-xs text-white truncate">
-              {schoolData.kecamatan || "-"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Alamat
             </div>
             <div className="text-xs text-white truncate">
@@ -100,18 +96,33 @@ export default function StickyInfoBox({
 
         <hr className="border-zinc-700" />
 
-        {/* Item Info */}
-        <div className="">
-          <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-            Barang
+        {/* Date Input */}
+        {date !== undefined && setDate && (
+          <div>
+            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
+              Tanggal Verifikasi
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              onWheel={(e) => {
+                if (!date) return;
+                const currentDate = new Date(date);
+                const daysToAdd = e.deltaY > 0 ? -1 : 1;
+                currentDate.setDate(currentDate.getDate() + daysToAdd);
+                const year = currentDate.getFullYear();
+                const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+                const day = String(currentDate.getDate()).padStart(2, "0");
+                setDate(`${year}-${month}-${day}`);
+              }}
+              className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 text-white focus:outline-none focus:border-yellow-500 text-sm"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">
+              * Pastikan tanggal sesuai dengan BAPP
+            </p>
           </div>
-          <div
-            className="text-xs text-white truncate"
-            title={itemData.nama_barang}
-          >
-            {itemData.nama_barang || "-"}
-          </div>
-        </div>
+        )}
 
         <hr className="border-zinc-700" />
 
@@ -125,24 +136,22 @@ export default function StickyInfoBox({
               {history.map((log: any, idx: number) => (
                 <div
                   key={idx}
-                  className={`border border-zinc-700 rounded p-2 ${
-                    log.status.toLowerCase().includes("setuju") ||
+                  className={`border border-zinc-700 rounded p-2 ${log.status.toLowerCase().includes("setuju") ||
                     log.status.toLowerCase().includes("terima")
-                      ? "bg-green-900/20 border-green-900/50"
-                      : "bg-red-900/20 border-red-900/50"
-                  }`}
+                    ? "bg-green-900/20 border-green-900/50"
+                    : "bg-red-900/20 border-red-900/50"
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-[10px] text-zinc-500 font-mono">
                       {log.date}
                     </span>
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                        log.status.toLowerCase().includes("setuju") ||
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${log.status.toLowerCase().includes("setuju") ||
                         log.status.toLowerCase().includes("terima")
-                          ? "bg-green-900/50 text-green-400"
-                          : "bg-red-900/50 text-red-400"
-                      }`}
+                        ? "bg-green-900/50 text-green-400"
+                        : "bg-red-900/50 text-red-400"
+                        }`}
                     >
                       {log.status}
                     </span>

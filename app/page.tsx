@@ -1263,8 +1263,6 @@ export default function Home() {
           setCustomReason={setCustomReason}
           sidebarOptions={sidebarOptions}
           currentImageIndex={currentImageIndex}
-          date={verificationDate}
-          setDate={setVerificationDate}
           snBapp={snBapp}
           setSnBapp={setSnBapp}
           position={sidebarPosition}
@@ -1283,6 +1281,8 @@ export default function Home() {
             schoolData={parsedData.school}
             itemData={parsedData.item}
             history={parsedData.history}
+            date={verificationDate}
+            setDate={setVerificationDate}
           />
 
           <div

@@ -160,8 +160,6 @@ export default function Sidebar({
   setCustomReason,
   sidebarOptions,
   currentImageIndex,
-  date,
-  setDate,
   snBapp,
   setSnBapp,
   position,
@@ -172,12 +170,11 @@ export default function Sidebar({
   dataSourceUsername,
 }: SidebarProps & {
   currentImageIndex: number | null;
-  date?: string;
-  setDate?: (date: string) => void;
   snBapp?: string;
   setSnBapp?: (val: string) => void;
 }) {
   const [hidePendingCount, setHidePendingCount] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Define Mapping here or outside component
   const IMAGE_FIELD_MAPPING: Record<number, string[]> = {
@@ -231,96 +228,34 @@ export default function Sidebar({
   });
 
   return (
-    <aside className="w-96 bg-gray-800 text-white flex-shrink-0 flex flex-col p-4 h-full overflow-hidden border-r border-gray-700">
-      <div className="flex justify-between items-start border-b border-gray-700 pb-4 flex-shrink-0">
-        <div className="flex flex-col text-xs space-y-1">
-          <div className="flex gap-2">
-            <span className="text-gray-500 font-bold w-6">DAC:</span>
-            <span className="font-mono text-gray-200">{dacUsername || "-"}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-gray-500 font-bold w-6">SRC:</span>
-            <span className="font-mono text-gray-200">{dataSourceUsername || "-"}</span>
-          </div>
-        </div>
-        {/* Layout Toggle */}
-        <div className="flex items-center gap-2">
-          <div className="flex bg-gray-900 p-0.5 rounded-full border border-gray-600">
+    <aside className="w-96 bg-gray-800 text-white flex-shrink-0 flex flex-col p-4 h-full overflow-hidden border-r border-gray-700 relative">
+      {/* Top Toolbar: Filter Toggles */}
+      <div className="flex justify-between items-center flex-shrink-0 gap-2">
+        {currentImageIndex !== null ? (
+          <div className="flex bg-gray-700 rounded p-1 flex-grow mb-4">
             <button
-              onClick={() => setPosition("left")}
-              className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${position === "left"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-gray-500 hover:text-gray-300"
+              onClick={() => setFilterMode("specific")}
+              className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "specific"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-400 hover:text-gray-200"
                 }`}
-              title="Left Layout"
             >
-              L
+              Filtered
             </button>
             <button
-              onClick={() => setPosition("right")}
-              className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${position === "right"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-gray-500 hover:text-gray-300"
+              onClick={() => setFilterMode("all")}
+              className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "all"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-400 hover:text-gray-200"
                 }`}
-              title="Right Layout"
             >
-              R
+              Default
             </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex-grow"></div>
+        )}
       </div>
-
-      {/* Mode Switcher when Image Open */}
-      {currentImageIndex !== null && (
-        <div className="flex bg-gray-700 rounded p-1 mt-2 mb-2">
-          <button
-            onClick={() => setFilterMode("specific")}
-            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "specific"
-              ? "bg-blue-600 text-white shadow"
-              : "text-gray-400 hover:text-gray-200"
-              }`}
-          >
-            Filtered
-          </button>
-          <button
-            onClick={() => setFilterMode("all")}
-            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "all"
-              ? "bg-blue-600 text-white shadow"
-              : "text-gray-400 hover:text-gray-200"
-              }`}
-          >
-            Default
-          </button>
-        </div>
-      )}
-
-      {/* Date Input - Ditampilkan pada Image Index 4 */}
-      {date !== undefined && setDate && (
-        <div className="mb-4 bg-gray-700 p-2 rounded border border-gray-600">
-          <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block mb-1">
-            Tanggal Verifikasi
-          </label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            onWheel={(e) => {
-              if (!date) return;
-              const currentDate = new Date(date);
-              const daysToAdd = e.deltaY > 0 ? -1 : 1;
-              currentDate.setDate(currentDate.getDate() + daysToAdd);
-              const year = currentDate.getFullYear();
-              const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-              const day = String(currentDate.getDate()).padStart(2, "0");
-              setDate(`${year}-${month}-${day}`);
-            }}
-            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-sm"
-          />
-          <p className="text-[10px] text-gray-400 mt-1">
-            * Pastikan tanggal sesuai dengan BAPP
-          </p>
-        </div>
-      )}
 
       {/* SN BAPP Input - Special Condition: Image Index 3 & Filtered Mode */}
       {snBapp !== undefined && setSnBapp && (
@@ -345,16 +280,17 @@ export default function Sidebar({
         </div>
       )}
 
-      <div className="flex-grow mt-4 overflow-y-auto pr-2 custom-scrollbar">
+      {/* Form Fields */}
+      <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
         {sidebarOptions.length === 0 ? (
           <div className="text-gray-400 text-sm text-center mt-10">
             Loading form options...
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
             {displayedOptions.map((field) => (
               <div key={field.id} className="text-left text-sm">
-                <label className="font-semibold text-gray-300 mb-2 block">
+                <label className="font-semibold text-gray-300 block">
                   {field.label}
                 </label>
                 <div className="flex flex-wrap gap-1">
@@ -375,34 +311,179 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className="border-t border-gray-700 pt-4 mt-4 flex-shrink-0">
+      {/* Footer Actions */}
+      <div className="border-t border-gray-700 pt-3 mt-2 flex-shrink-0">
+        {/* Compact Info Row */}
+        <div className="flex items-center justify-between mb-3 bg-gray-900/50 p-2 rounded border border-gray-700">
+          {/* Pending Count (Clickable) */}
+          {/* Pending Count (with Eye Toggle) */}
+          <div className="flex items-center gap-2 select-none">
+            <span className="text-xs text-gray-400">Pending:</span>
+            <span className="text-sm font-bold text-white min-w-[20px]">
+              {hidePendingCount
+                ? "***"
+                : pendingCount !== null
+                  ? pendingCount
+                  : "..."}
+            </span>
+            <button
+              onClick={() => setHidePendingCount(!hidePendingCount)}
+              className="p-1 text-gray-400 hover:text-white transition-colors hover:cursor-pointer focus:outline-none"
+              title={hidePendingCount ? "Show Count" : "Hide Count"}
+            >
+              {hidePendingCount ? (
+                // Eye Off Icon (Hidden state -> click to show)
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                // Eye Icon (Visible state -> click to hide)
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
 
+          <div className="flex items-center gap-2">
+            {/* Edit Catatan Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase">
+                Edit Note:
+              </span>
+              <button
+                onClick={() => setEnableManualNote(!enableManualNote)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enableManualNote ? "bg-blue-600" : "bg-gray-600"
+                  }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${enableManualNote ? "translate-x-5" : "translate-x-1"
+                    }`}
+                />
+              </button>
+            </div>
 
-        <div
-          onClick={() => setHidePendingCount(!hidePendingCount)}
-          className="cursor-pointer hover:bg-gray-700 p-1 rounded transition-colors mb-2 text-center select-none"
-        >
-          <p className="text-xs text-gray-400">
-            Pending: <span className="font-bold text-white">{hidePendingCount ? "***" : (pendingCount !== null ? pendingCount : "...")}</span>
-            <span className="text-[10px] ml-1 opacity-50">{hidePendingCount ? "(show)" : "(hide)"}</span>
-          </p>
+            {/* Options Menu Button (Moved Here) */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-1 hover:bg-gray-700 rounded-full transition-colors focus:outline-none text-gray-400 hover:text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="1" />
+                  <circle cx="12" cy="5" r="1" />
+                  <circle cx="12" cy="19" r="1" />
+                </svg>
+              </button>
+
+              {/* Options Dropdown (Opens Upwards) */}
+              {isMenuOpen && (
+                <>
+                  {/* Overlay to close menu */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsMenuOpen(false)}
+                  ></div>
+                  <div className="absolute right-0 bottom-full mb-2 w-64 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 p-4">
+                    {/* User Info */}
+                    <div className="mb-4 text-xs space-y-2 border-b border-gray-700 pb-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 font-bold">DAC:</span>
+                        <span className="font-mono text-gray-200">
+                          {dacUsername || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 font-bold">SRC:</span>
+                        <span className="font-mono text-gray-200">
+                          {dataSourceUsername || "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Layout Toggle */}
+                    <div className="mb-4">
+                      <label className="text-xs font-bold text-gray-400 block mb-2">
+                        Layout Position
+                      </label>
+                      <div className="flex bg-gray-900 p-1 rounded border border-gray-600">
+                        <button
+                          onClick={() => setPosition("left")}
+                          className={`flex-1 py-1 text-xs rounded transition-all ${position === "left"
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-400 hover:text-gray-200"
+                            }`}
+                        >
+                          Left
+                        </button>
+                        <button
+                          onClick={() => setPosition("right")}
+                          className={`flex-1 py-1 text-xs rounded transition-all ${position === "right"
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-400 hover:text-gray-200"
+                            }`}
+                        >
+                          Right
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Logout Button */}
+                    <button
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Are you sure you want to logout? This will clear all local session data."
+                          )
+                        ) {
+                          localStorage.clear();
+                          window.location.reload();
+                        }
+                      }}
+                      className="w-full p-2 bg-red-700/20 hover:bg-red-900/40 text-red-300 hover:text-red-200 text-xs rounded border border-red-800/50 hover:border-red-700 transition-colors"
+                    >
+                      LOGOUT & CLEAR DATA
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4 bg-gray-900/50 p-2 rounded border border-gray-700">
-          <span className="text-xs font-bold text-gray-400 uppercase">
-            Edit Catatan DAC
-          </span>
-          <button
-            onClick={() => setEnableManualNote(!enableManualNote)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enableManualNote ? "bg-blue-600" : "bg-gray-600"
-              }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableManualNote ? "translate-x-6" : "translate-x-1"
-                }`}
-            />
-          </button>
-        </div>
+        {/* Action Buttons */}
         <div className="flex gap-2">
           <button
             onClick={() => handleSkip(true)}
@@ -421,23 +502,6 @@ export default function Sidebar({
             {isSubmitting ? <Spinner /> : mainButtonLabel}
           </button>
         </div>
-
-        {/* Logout Button */}
-        <button
-          onClick={() => {
-            if (
-              confirm(
-                "Are you sure you want to logout? This will clear all local session data.",
-              )
-            ) {
-              localStorage.clear();
-              window.location.reload();
-            }
-          }}
-          className="w-full mt-3 p-2 bg-red-700/50 hover:bg-red-900/50 text-zinc-400 hover:text-red-200 text-xs rounded border border-zinc-700 hover:border-red-800 transition-colors"
-        >
-          LOGOUT & CLEAR STORAGE
-        </button>
       </div>
     </aside>
   );
