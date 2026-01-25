@@ -35,14 +35,12 @@ export default function StickyInfoBox({
       fetch(`/api/fetch-school-data?npsn=${schoolData.npsn}`, {
         method: "POST",
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(res.statusText);
+          return res.json();
+        })
         .then((data) => {
-          if (data.error) {
-            // Soft Failure: Server backend aktif, tapi gagal ambil data eksternal
-            setKepsek("⚠️ Offline");
-            setGuruList([]);
-            console.warn("API Soft Fail:", data.error);
-          } else if (data) {
+          if (data) {
             setKepsek(data.namaKepsek || "-");
             let list = data.guruLain || [];
             if (data.namaKepsek) {
@@ -54,10 +52,7 @@ export default function StickyInfoBox({
             setGuruList(list);
           }
         })
-        .catch((err) => {
-           console.error("Error fetching guru:", err);
-           setKepsek("⚠️ Error");
-        })
+        .catch((err) => console.error("Error fetching guru:", err))
         .finally(() => setIsLoadingGuru(false));
     } else {
       setGuruList([]);
