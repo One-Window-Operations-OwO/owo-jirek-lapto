@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
     });
 
@@ -29,11 +30,17 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error fetching school data:", error);
+  } catch (error: any) {
+    console.error("DEBUG: External API Failed (Soft Fail):", error.message);
+    // Return empty structure with error flag, status 200 to prevent frontend console red error
     return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
+      {
+        namaKepsek: null,
+        guruLain: [],
+        error: "Server Data Offline",
+        debug: error.message
+      },
+      { status: 200 }
     );
   }
 }

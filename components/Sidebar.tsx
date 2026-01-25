@@ -318,6 +318,8 @@ export default function Sidebar({
             onChange={(e) => setSnBapp(e.target.value)}
             placeholder="Input SN if mismatch"
             className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-sm font-mono placeholder-gray-500"
+            onMouseEnter={(e) => e.currentTarget.focus()}
+            onKeyDown={(e) => e.stopPropagation()}
           />
         </div>
       )}

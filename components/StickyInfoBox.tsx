@@ -27,6 +27,7 @@ export default function StickyInfoBox({
   const [guruList, setGuruList] = useState<any[]>([]);
   const [isLoadingGuru, setIsLoadingGuru] = useState(false);
   const [guruSearch, setGuruSearch] = useState("");
+  const [showGuruSearch, setShowGuruSearch] = useState(false);
 
   useEffect(() => {
     if (schoolData.npsn && schoolData.npsn !== "-") {
@@ -34,12 +35,14 @@ export default function StickyInfoBox({
       fetch(`/api/fetch-school-data?npsn=${schoolData.npsn}`, {
         method: "POST",
       })
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText);
-          return res.json();
-        })
+        .then((res) => res.json())
         .then((data) => {
-          if (data) {
+          if (data.error) {
+            // Soft Failure: Server backend aktif, tapi gagal ambil data eksternal
+            setKepsek("⚠️ Offline");
+            setGuruList([]);
+            console.warn("API Soft Fail:", data.error);
+          } else if (data) {
             setKepsek(data.namaKepsek || "-");
             let list = data.guruLain || [];
             if (data.namaKepsek) {
@@ -51,7 +54,10 @@ export default function StickyInfoBox({
             setGuruList(list);
           }
         })
-        .catch((err) => console.error("Error fetching guru:", err))
+        .catch((err) => {
+           console.error("Error fetching guru:", err);
+           setKepsek("⚠️ Error");
+        })
         .finally(() => setIsLoadingGuru(false));
     } else {
       setGuruList([]);
@@ -163,30 +169,62 @@ export default function StickyInfoBox({
         <hr className="border-zinc-700" />
 
         <div className="p-0">
-          <div className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wide mb-2">
-            Kepala Sekolah :
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wide">
+              Kepala Sekolah :
+            </div>
+            <button
+              onClick={() => setShowGuruSearch(!showGuruSearch)}
+              className={`text-[10px] p-1 rounded transition-colors ${
+                showGuruSearch
+                  ? "bg-yellow-900/30 text-yellow-500"
+                  : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+              }`}
+              title={showGuruSearch ? "Sembunyikan Pencarian" : "Tampilkan Pencarian"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
           </div>
           <div className="mb-3 text-[13px] font-semibold text-zinc-200 bg-sky-900/20 border border-sky-900/50 p-2 rounded block">
             {isLoadingGuru ? "Loading..." : kepsek || "-"}
           </div>
 
-          <input
-            className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 mb-2 text-white focus:outline-none focus:border-yellow-500 text-[13px]"
-            placeholder="Cari guru..."
-            autoComplete="off"
-            value={guruSearch}
-            onChange={(e) => setGuruSearch(e.target.value)}
-          />
+          {showGuruSearch && (
+            <>
+              <input
+                className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 mb-2 text-white focus:outline-none focus:border-yellow-500 text-[13px]"
+                placeholder="Cari guru..."
+                autoComplete="off"
+                value={guruSearch}
+                onChange={(e) => setGuruSearch(e.target.value)}
+                onMouseEnter={(e) => e.currentTarget.focus()}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
 
-          <div className="max-h-[120px] overflow-y-auto border border-zinc-700 bg-zinc-900 rounded p-1 custom-scrollbar">
-            {filteredGuru.length > 0 ? (
-              filteredGuru.map((g, idx) => renderGuruItem(g, idx))
-            ) : (
-              <div className="text-zinc-500 text-xs p-2 text-center">
-                Tidak ada data ditampilkan.
+              <div className="max-h-[120px] overflow-y-auto border border-zinc-700 bg-zinc-900 rounded p-1 custom-scrollbar">
+                {filteredGuru.length > 0 ? (
+                  filteredGuru.map((g, idx) => renderGuruItem(g, idx))
+                ) : (
+                  <div className="text-zinc-500 text-xs p-2 text-center">
+                    Tidak ada data ditampilkan.
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
         {/* ------------------------- */}
 
