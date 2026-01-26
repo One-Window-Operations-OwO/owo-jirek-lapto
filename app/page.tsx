@@ -171,14 +171,14 @@ export default function Home() {
           try {
             const { username } = JSON.parse(dacCache);
             setDacUsername(username || "");
-          } catch (e) { }
+          } catch (e) {}
         }
         const dsCache = localStorage.getItem("login_cache_datasource");
         if (dsCache) {
           try {
             const { username } = JSON.parse(dsCache);
             setDataSourceUsername(username || "");
-          } catch (e) { }
+          } catch (e) {}
         }
       },
     );
@@ -235,35 +235,48 @@ export default function Home() {
     // const username = localStorage.getItem('username');
 
     if (!dsSession) return;
-
-    try {
-      const res = await fetch("/api/datasource/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cookie: dsSession,
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        const filtered = json.data.filter(
-          (item: any) => item.type === "Zyrex" && item.status === "PROSES",
-        );
-
-        if (
-          typeof window !== "undefined" &&
-          window.location.search.includes("reverse=true")
-        ) {
-          filtered.reverse();
+    const cachedData = localStorage.getItem("cached_scraped_data");
+    if (cachedData) {
+      try {
+        const parsedCache = JSON.parse(cachedData);
+        if (Array.isArray(parsedCache) && parsedCache.length > 0) {
+          console.log("Menggunakan data dari Cache LocalStorage");
+          setSheetData(parsedCache);
+          setCurrentTaskIndex(0);
+          return; // Hentikan fungsi di sini, tidak perlu fetch API
         }
-        console.log(filtered);
-        setSheetData(filtered);
-        setCurrentTaskIndex(0);
-      } else {
-        console.error("Failed to fetch scraped data:", json.message);
+      } catch (e) {
+        console.error("Gagal parse data cache", e);
       }
-    } catch (e) {
-      console.error("Error fetching scraped data:", e);
+    } else {
+      try {
+        const res = await fetch("/api/datasource/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cookie: dsSession,
+          }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          const filtered = json.data.filter(
+            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+          );
+
+          if (
+            typeof window !== "undefined" &&
+            window.location.search.includes("reverse=true")
+          ) {
+            filtered.reverse();
+          }
+          setSheetData(filtered);
+          setCurrentTaskIndex(0);
+        } else {
+          console.error("Failed to fetch scraped data:", json.message);
+        }
+      } catch (e) {
+        console.error("Error fetching scraped data:", e);
+      }
     }
   };
 
@@ -387,8 +400,7 @@ export default function Home() {
         }));
       setVerificationDate(fetchedDate);
       // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
-      if (awb.SignatureURL)
-        mappedImages.push({ src: awb.SignatureURL, title: "SIGNATURE" });
+
       const historyComments = (comments || []).map((c: any) => ({
         date: c.CreatedAt,
         status: "REVISI/DITOLAK",
@@ -556,8 +568,6 @@ export default function Home() {
     const doc = parser.parseFromString(html, "text/html");
 
     const fieldMapping: Omit<EvaluationField, "options">[] = [
-      { id: "F", label: "TGL BAPP", name: "ket_tgl_bapp" },
-      { id: "G", label: "GEO TAGGING", name: "geo_tag" },
       { id: "H", label: "FOTO SEKOLAH/PAPAN NAMA", name: "f_papan_identitas" },
       { id: "I", label: "FOTO BOX & PIC", name: "f_box_pic" },
       { id: "J", label: "FOTO KELENGKAPAN UNIT", name: "f_unit" },
@@ -567,6 +577,8 @@ export default function Home() {
       { id: "R", label: "BAPP HAL 2", name: "bapp_hal2" },
       { id: "S", label: "TTD BAPP", name: "nm_ttd_bapp" },
       { id: "T", label: "STEMPEL", name: "stempel" },
+      { id: "F", label: "TGL BAPP", name: "ket_tgl_bapp" },
+      { id: "G", label: "GEO TAGGING", name: "geo_tag" },
     ];
 
     const newOptions: EvaluationField[] = [];
@@ -717,14 +729,14 @@ export default function Home() {
     item: any,
     currentParsedData: ExtractedData,
     shouldWaitUser: boolean,
-    isRetry: boolean = false
+    isRetry: boolean = false,
   ) => {
-    // Reset Status on start (unless it's a specific retry stage that we handle inside, but generally reset to processing)
+    // 1. Inisialisasi Status
     if (!isRetry) {
       setProcessingStatus("processing");
       setFailedStage("none");
       setErrorMessage("");
-      // Save payloads for potential retry
+      // Simpan payload untuk kebutuhan retry di masa mendatang
       setRetryPayloads({
         submitPayload: payload,
         item: item,
@@ -738,27 +750,20 @@ export default function Home() {
     let attempt = 0;
     let submitSuccess = false;
 
-    // Only run submit loop if we are NOT retrying JUST the save-approval stage
-    // If failedStage was 'save-approval' and we are retrying, we skip submit
-    const skipSubmit = isRetry && failedStage === 'save-approval';
+    // Cek apakah kita melewati tahap submit (jika retry spesifik di tahap approval)
+    const skipSubmit = isRetry && failedStage === "save-approval";
 
+    // 2. Loop Proses Submit (dengan Limit 3x Percobaan)
     if (!skipSubmit) {
       while (true) {
         attempt++;
-        // Max retries for background process? Let's keep it finite for the red light to appear.
-        // Or user said "Background process still running" -> Yellow. "Error" -> Red.
-        // If we loop forever, it stays Yellow. If it fails definitively, Red.
-        // Let's cap at 3 attempts for "Red" state trigger, or match existing logic.
-        // Existing logic is `while(true)`. That means it never errors out to Red?
-        // The user said "Merah berarti ada yang error".
-        // So we should probably limit retries or allow the user to interrupt.
-        // For now, I'll limit to 3 attempts, then go Red.
+
         if (attempt > 3) {
           console.error("Max retries reached for submit");
           setProcessingStatus("error");
           setFailedStage("submit");
           setErrorMessage("Gagal submit ke datasource setelah 3 percobaan");
-          return; // Stop here
+          return;
         }
 
         try {
@@ -769,16 +774,40 @@ export default function Home() {
           });
 
           const json = await res.json();
+
           if (json.success) {
-            if (shouldWaitUser) {
-              console.log(`Submitted ${item.npsn} (Manual Note Flow)`);
-            } else {
-              console.log(`Submitted ${item.npsn} (Background)`);
+            // --- LOGIKA UPDATE LOCAL STORAGE (DARI STASHED) ---
+            const cachedData = localStorage.getItem("cached_scraped_data");
+            if (cachedData) {
+              try {
+                let parsedCache = JSON.parse(cachedData);
+                const indexToRemove = parsedCache.findIndex(
+                  (c: any) =>
+                    c.npsn === item.npsn && c.no_bapp === item.no_bapp,
+                );
+
+                if (indexToRemove !== -1) {
+                  parsedCache.splice(indexToRemove, 1);
+                  localStorage.setItem(
+                    "cached_scraped_data",
+                    JSON.stringify(parsedCache),
+                  );
+
+                  // Sinkronisasi UI
+                  setSheetData(parsedCache);
+                  setCurrentTaskIndex(0);
+                }
+              } catch (e) {
+                console.error("Gagal update cache lokal setelah submit", e);
+              }
             }
+
+            console.log(
+              `Submitted ${item.npsn} (${shouldWaitUser ? "Manual Note" : "Background"})`,
+            );
             submitSuccess = true;
-            break;
+            break; // Keluar dari loop while
           } else {
-            // Failure response from server
             console.error(`Submit Failed (Attempt ${attempt}):`, json.message);
             await new Promise((resolve) => setTimeout(resolve, 2000));
             continue;
@@ -790,91 +819,69 @@ export default function Home() {
         }
       }
     } else {
-      submitSuccess = true; // Skipped submit because it was already done
+      submitSuccess = true;
     }
 
-    if (!submitSuccess) return; // Should be handled by max retries check above
+    if (!submitSuccess) return;
 
-    // Process Post-Success Logic (extracted from original success block)
+    // 3. Logika Post-Success (DAC & Approval)
     try {
       let finalNote = "";
 
-      // Only fetch view-form if needed (e.g. for rejected items or logging)
+      // Ambil view-form untuk mendapatkan note/deskripsi yang sudah ada
       try {
         const viewRes = await fetch("/api/datasource/view-form", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: item.action_id,
-            cookie: session,
-          }),
+          body: JSON.stringify({ id: item.action_id, cookie: session }),
         });
         const viewJson = await viewRes.json();
         if (viewJson.success && viewJson.html) {
           const parser = new DOMParser();
           const doc = parser.parseFromString(viewJson.html, "text/html");
-
           const descInput = doc.querySelector(
             'textarea[name="description"]',
           ) as HTMLTextAreaElement;
           if (descInput) {
             finalNote = descInput.value || descInput.textContent || "";
           }
-
-          const alerts = Array.from(
-            doc.querySelectorAll(".alert.alert-danger"),
-          );
-          const isPihakPertamaError = alerts.some((alert) =>
-            /Pihak pertama/i.test(alert.textContent || ""),
-          );
-
-          if (isPihakPertamaError) {
-            const pihakPertamaNote =
-              "(1AN) Pihak pertama hanya boleh dari kepala sekolah/wakil kepala sekolah/guru/pengajar/operator sekolah";
-            if (finalNote.length > 0) {
-              finalNote = `${finalNote} ${pihakPertamaNote}`;
-            } else {
-              finalNote = pihakPertamaNote;
-            }
-          }
         }
       } catch (err) {
-        console.error("Error fetching view form in process", err);
+        console.error("Error fetching view form", err);
       }
 
-      // DAC Session Refresh Logic
+      // Refresh DAC Session
       let currentDacSession = localStorage.getItem("dac_session");
       const storedDac = localStorage.getItem("login_cache_dac");
       if (storedDac) {
         try {
           const { username: dacUser, password: dacPass } =
             JSON.parse(storedDac);
-          if (dacUser && dacPass) {
-            const loginRes = await fetch("/api/auth/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                username: dacUser,
-                password: dacPass,
-                type: "dac",
-              }),
-            });
-            const loginJson = await loginRes.json();
-            if (loginJson.success) {
-              let pureToken = loginJson.data?.token;
-              if (!pureToken && loginJson.cookie) {
-                const match = loginJson.cookie.match(/token=([^;]+)/);
-                pureToken = match ? match[1] : loginJson.cookie;
-              }
-              if (pureToken) {
-                localStorage.setItem("dac_session", pureToken);
-                currentDacSession = pureToken;
-              }
+          const loginRes = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: dacUser,
+              password: dacPass,
+              type: "dac",
+            }),
+          });
+          const loginJson = await loginRes.json();
+          if (loginJson.success) {
+            let pureToken = loginJson.data?.token;
+            if (!pureToken && loginJson.cookie) {
+              const match = loginJson.cookie.match(/token=([^;]+)/);
+              pureToken = match ? match[1] : loginJson.cookie;
+            }
+            if (pureToken) {
+              localStorage.setItem("dac_session", pureToken);
+              currentDacSession = pureToken;
             }
           }
-        } catch (ignore) { }
+        } catch (ignore) {}
       }
 
+      // 4. Proses Simpan Approval
       if (currentDacSession && currentParsedData.extractedId) {
         const approvalPayload = {
           status: finalNote.length > 0 ? "rejected" : "approved",
@@ -885,62 +892,41 @@ export default function Home() {
           bapp_date: formatToDacISO(verificationDate),
         };
 
-        // Update retry payload for approval
-        setRetryPayloads(prev => ({ ...prev, approvalPayload }));
+        setRetryPayloads((prev) => ({ ...prev, approvalPayload }));
 
         if (shouldWaitUser) {
-          // MANUAL FLOW: Update State & Show Modal
+          // FLOW MANUAL: Tampilkan Modal
           setPendingApprovalData(approvalPayload);
           setManualNote(finalNote);
           setShowNoteModal(true);
-          // Note: State remains 'processing' or maybe 'idle' waiting for user?
-          // Let's set to success for the "Submit" part, but effectively it's paused.
-          // Since this is a modal flow, the "Process" is effectively interrupted/done for now.
           setProcessingStatus("idle");
         } else {
-          // BACKGROUND FLOW: Save Immediately
-          try {
-            // Retry loop for Save Approval ?
-            let saveAttempt = 0;
-            while (true) {
-              saveAttempt++;
-              if (saveAttempt > 3) {
-                throw new Error("Max retries for Save Approval");
-              }
-              const saveRes = await fetch("/api/save-approval", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(approvalPayload),
-              });
+          // FLOW BACKGROUND: Simpan Otomatis (dengan Retry 3x)
+          let saveAttempt = 0;
+          while (true) {
+            saveAttempt++;
+            if (saveAttempt > 3)
+              throw new Error("Max retries for Save Approval");
 
-              // Check if response is ok or json success?
-              // Assuming 200 OK means success or check json
-              if (saveRes.ok) {
-                break;
-              } else {
-                await new Promise(r => setTimeout(r, 1000));
-                continue;
-              }
-            }
+            const saveRes = await fetch("/api/save-approval", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(approvalPayload),
+            });
 
-            setProcessingStatus("success");
-            // Clear everything after delay?
-            setTimeout(() => setProcessingStatus("idle"), 3000);
-
-          } catch (err) {
-            console.error("Background DAC Save Error", err);
-            setProcessingStatus("error");
-            setFailedStage("save-approval");
-            setErrorMessage("Gagal menyimpan approval ke DAC");
+            if (saveRes.ok) break;
+            await new Promise((r) => setTimeout(r, 1000));
           }
+
+          setProcessingStatus("success");
+          setTimeout(() => setProcessingStatus("idle"), 3000);
         }
       }
     } catch (err) {
       console.error("Error in post-submit logic:", err);
-      // General error fallback
       setProcessingStatus("error");
-      setFailedStage("save-approval"); // Assume post-submit error is approval related
-      setErrorMessage("Error logic after submit");
+      setFailedStage("save-approval");
+      setErrorMessage("Gagal memproses approval setelah submit");
     }
   };
   const executeSaveApproval = async (payload: any) => {
@@ -1093,34 +1079,49 @@ export default function Home() {
     await submitToDataSource(false);
   };
   const handleSkip = (skipped: boolean) => {
-    const nextIndex = currentTaskIndex + 1;
-    if (nextIndex < sheetData.length) {
-      const nextItem = sheetData[nextIndex];
-
-      // OPTIMISTIC PRE-UPDATE
-      // 1. Reset Form & UI States
-      setEvaluationForm(defaultEvaluationValues);
-      setCustomReason("");
-      setSnBapp(nextItem.serial_number);
-      setEnableManualNote(false);
-      setCurrentImageIndex(null);
-
-      // 2. Data Swap (Immediate)
-      const cacheKey = `${nextItem.npsn}_${nextItem.no_bapp}`;
-      if (prefetchCache.current.has(cacheKey)) {
-        const json = prefetchCache.current.get(cacheKey);
-        setParsedDataFromJSON(json, nextItem);
-      } else {
-        setParsedData(null);
+    // Jika data tinggal 1 atau tidak ada, tidak perlu memindahkan urutan
+    if (sheetData.length <= 1) {
+      if (sheetData.length === 1) {
+        // Opsional: Beri notifikasi jika hanya sisa 1 data
+        console.log("Hanya tersisa 1 data, tidak bisa skip ke belakang.");
       }
+      return;
+    }
 
-      // 3. Move Index
-      setCurrentTaskIndex((prev) => prev + 1);
+    // 1. Ambil data yang sedang aktif (yang akan di-skip)
+    const currentItem = sheetData[currentTaskIndex];
+
+    // 2. Buat list baru dengan memindahkan currentItem ke posisi paling belakang
+    const newSheetData = [...sheetData];
+    newSheetData.splice(currentTaskIndex, 1); // Hapus dari posisi saat ini
+    newSheetData.push(currentItem); // Masukkan ke posisi terakhir
+
+    // 3. Ambil item yang sekarang menjadi urutan pertama (untuk update UI)
+    const nextItem = newSheetData[0];
+
+    // 4. OPTIMISTIC UI UPDATE (Gunakan data dari urutan pertama yang baru)
+    setEvaluationForm(defaultEvaluationValues);
+    setCustomReason("");
+    setSnBapp(nextItem.serial_number);
+    setEnableManualNote(false);
+    setCurrentImageIndex(null);
+
+    // 5. Update State & Reset Index ke 0
+    // Kita reset ke 0 karena kita ingin selalu memproses item paling atas
+    setSheetData(newSheetData);
+    setCurrentTaskIndex(0);
+
+    // 6. Sinkronisasi ke LocalStorage (Agar urutan baru tersimpan saat refresh)
+    localStorage.setItem("cached_scraped_data", JSON.stringify(newSheetData));
+
+    // 7. Load Detail Data untuk item baru di index 0
+    const cacheKey = `${nextItem.npsn}_${nextItem.no_bapp}`;
+    if (prefetchCache.current.has(cacheKey)) {
+      const json = prefetchCache.current.get(cacheKey);
+      setParsedDataFromJSON(json, nextItem);
     } else {
-      // End of list
-      setCurrentTaskIndex((prev) => prev + 1);
       setParsedData(null);
-      setSelectedSn(null);
+      // Pemicu fetch otomatis biasanya ditangani oleh useEffect yang memantau currentTaskIndex/sheetData
     }
   };
 
@@ -1202,8 +1203,9 @@ export default function Home() {
     <div className="flex h-screen w-full bg-zinc-50 dark:bg-black overflow-hidden relative">
       {/* Main Content */}
       <div
-        className={`flex-1 h-full overflow-hidden relative bg-zinc-50/50 dark:bg-zinc-900/50 ${sidebarPosition === "left" ? "order-2" : "order-1"
-          }`}
+        className={`flex-1 h-full overflow-hidden relative bg-zinc-50/50 dark:bg-zinc-900/50 ${
+          sidebarPosition === "left" ? "order-2" : "order-1"
+        }`}
       >
         <div className="h-full overflow-y-auto p-4 md:p-6 custom-scrollbar">
           {parsedData && !detailLoading ? (
@@ -1216,25 +1218,37 @@ export default function Home() {
                     failedStage={failedStage}
                     errorMessage={errorMessage}
                     onRetry={() => {
-                      const session = localStorage.getItem("datasource_session") || "";
+                      const session =
+                        localStorage.getItem("datasource_session") || "";
                       if (!session) return;
 
                       // Guard: Ensure we have necessary data
-                      if (!retryPayloads.item || !retryPayloads.currentParsedData) {
-                        alert("Data retry tidak lengkap. Silakan refresh halaman.");
+                      if (
+                        !retryPayloads.item ||
+                        !retryPayloads.currentParsedData
+                      ) {
+                        alert(
+                          "Data retry tidak lengkap. Silakan refresh halaman.",
+                        );
                         return;
                       }
 
-                      if (failedStage === "submit" && retryPayloads.submitPayload) {
+                      if (
+                        failedStage === "submit" &&
+                        retryPayloads.submitPayload
+                      ) {
                         handleSubmissionProcess(
                           session,
                           retryPayloads.submitPayload,
                           retryPayloads.item,
                           retryPayloads.currentParsedData,
                           false, // shouldWaitUser
-                          true // isRetry
+                          true, // isRetry
                         );
-                      } else if (failedStage === "save-approval" && retryPayloads.approvalPayload) {
+                      } else if (
+                        failedStage === "save-approval" &&
+                        retryPayloads.approvalPayload
+                      ) {
                         // Optimised Retry: Use the saved payload directly
                         setProcessingStatus("processing");
                         setErrorMessage("");
@@ -1247,7 +1261,10 @@ export default function Home() {
                           .then(async (res) => {
                             if (res.ok) {
                               setProcessingStatus("success");
-                              setTimeout(() => setProcessingStatus("idle"), 3000);
+                              setTimeout(
+                                () => setProcessingStatus("idle"),
+                                3000,
+                              );
                               setFailedStage("none");
                             } else {
                               throw new Error("Failed to save approval");
@@ -1257,14 +1274,15 @@ export default function Home() {
                             console.error("Retry Save Approval Error", err);
                             setProcessingStatus("error");
                             setFailedStage("save-approval");
-                            setErrorMessage("Gagal menyimpan approval ke DAC (Retry)");
+                            setErrorMessage(
+                              "Gagal menyimpan approval ke DAC (Retry)",
+                            );
                           });
                       }
                     }}
                   />
                 </div>
                 <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4 border-b dark:border-zinc-700 pb-2">
-
                   Informasi Sekolah
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-8">
@@ -1320,22 +1338,24 @@ export default function Home() {
                     {parsedData.history.map((log, idx) => (
                       <div
                         key={idx}
-                        className={`border dark:border-zinc-700 rounded-lg p-4 dark:bg-zinc-900/30 ${log.status.toLowerCase().includes("setuju") ||
+                        className={`border dark:border-zinc-700 rounded-lg p-4 dark:bg-zinc-900/30 ${
+                          log.status.toLowerCase().includes("setuju") ||
                           log.status.toLowerCase().includes("terima")
-                          ? "bg-green-100"
-                          : "bg-red-100"
-                          }`}
+                            ? "bg-green-100"
+                            : "bg-red-100"
+                        }`}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <span className="text-xs text-zinc-500 font-mono">
                             {log.date}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.status.toLowerCase().includes("setuju") ||
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              log.status.toLowerCase().includes("setuju") ||
                               log.status.toLowerCase().includes("terima")
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              }`}
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            }`}
                           >
                             {log.status}
                           </span>
@@ -1413,10 +1433,11 @@ export default function Home() {
 
       {/* Sidebar */}
       <div
-        className={`flex-shrink-0 h-full ${sidebarPosition === "left"
-          ? "order-1 border-r border-zinc-700"
-          : "order-2 border-l border-zinc-700"
-          }`}
+        className={`flex-shrink-0 h-full ${
+          sidebarPosition === "left"
+            ? "order-1 border-r border-zinc-700"
+            : "order-2 border-l border-zinc-700"
+        }`}
       >
         <Sidebar
           pendingCount={sheetData.length - currentTaskIndex}
@@ -1439,6 +1460,7 @@ export default function Home() {
           dacUsername={dacUsername}
           currentItemSn={sheetData[currentTaskIndex]?.serial_number}
           dataSourceUsername={dataSourceUsername}
+          sheetData={sheetData}
         />
       </div>
 
@@ -1454,8 +1476,9 @@ export default function Home() {
           />
 
           <div
-            className={`absolute top-0 bottom-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm transition-all duration-300 ${sidebarPosition === "left" ? "left-96 right-0" : "left-0 right-96"
-              }`}
+            className={`absolute top-0 bottom-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm transition-all duration-300 ${
+              sidebarPosition === "left" ? "left-96 right-0" : "left-0 right-96"
+            }`}
             onClick={() => setCurrentImageIndex(null)}
           >
             {/* Sticky Info */}
@@ -1520,7 +1543,7 @@ export default function Home() {
                 e.stopPropagation();
                 setCurrentImageIndex(
                   (currentImageIndex - 1 + parsedData.images.length) %
-                  parsedData.images.length,
+                    parsedData.images.length,
                 );
               }}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-6xl transition-colors p-4"
@@ -1555,10 +1578,11 @@ export default function Home() {
                 Edit Catatan Approval DAC
               </h3>
               <span
-                className={`px-2 py-1 rounded text-[10px] font-bold ${pendingApprovalData?.status === 2
-                  ? "bg-green-900 text-green-400"
-                  : "bg-red-900 text-red-400"
-                  }`}
+                className={`px-2 py-1 rounded text-[10px] font-bold ${
+                  pendingApprovalData?.status === 2
+                    ? "bg-green-900 text-green-400"
+                    : "bg-red-900 text-red-400"
+                }`}
               >
                 {pendingApprovalData?.status === 2 ? "APPROVE" : "REJECT"}
               </span>

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     if (bapp_id && note) {
       const commentPayload = {
         bapp_id: bapp_id,
-        comment: note,
+        comment: `[DITOLAK/REVISI]: ${note}`,
       };
 
       const commentUrl = "https://api.kemendikdasmen.zyrex.com/api/comment/";
