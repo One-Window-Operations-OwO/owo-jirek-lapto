@@ -964,7 +964,7 @@ export default function Home() {
         console.error("Error fetching view form", err);
       }
 
-      // Refresh DAC Session
+      // Refresh Zyrex Session
       let currentDacSession = localStorage.getItem("dac_session");
       const storedDac = localStorage.getItem("login_cache_dac");
       if (storedDac) {
@@ -1050,7 +1050,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      console.log("Saved to DAC");
+      console.log("Saved to Zyrex");
       return await res.json();
     } catch (dacErr) {
       console.error("Failed to save to DAC", dacErr);
@@ -1287,7 +1287,7 @@ export default function Home() {
   if (!dacAuthenticated) {
     return (
       <Login
-        title="Login DAC"
+        title="Login Zyrex"
         loginType="dac"
         onLoginSuccess={handleDacLoginSuccess}
       />
@@ -1552,7 +1552,7 @@ export default function Home() {
                   console.error("Retry Save Approval Error", err);
                   setProcessingStatus("error");
                   setFailedStage("save-approval");
-                  setErrorMessage("Gagal menyimpan approval ke DAC (Retry)");
+                  setErrorMessage("Gagal menyimpan approval ke Zyrex (Retry)");
                 });
             }
           }}
@@ -1676,7 +1676,7 @@ export default function Home() {
           <div className="bg-zinc-900 border border-zinc-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden">
             <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
               <h3 className="text-white font-bold">
-                Edit Catatan Approval DAC
+                Edit Catatan Approval Zyrex
               </h3>
               <span
                 className={`px-2 py-1 rounded text-[10px] font-bold ${pendingApprovalData?.status === 2
@@ -1713,7 +1713,7 @@ export default function Home() {
                 onClick={handleConfirmManualNote}
                 className="flex-2 px-8 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-bold text-sm transition-colors"
               >
-                SIMPAN KE DAC
+                SIMPAN KE Zyrex
               </button>
             </div>
           </div>

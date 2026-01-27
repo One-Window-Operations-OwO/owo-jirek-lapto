@@ -34,13 +34,13 @@ export async function POST(request: Request) {
       if (response.status !== 200) {
         return NextResponse.json({
           success: false,
-          message: data.message || "Login DAC Gagal",
+          message: data.message || "Login Zyrex Gagal",
         });
       }
 
       return NextResponse.json({
         success: true,
-        message: "Login DAC Berhasil",
+        message: "Login Zyrex Berhasil",
         cookie: setCookieHeader, // Mengirim header set-cookie (berisi token) ke client
         data: data,
       });

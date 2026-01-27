@@ -37,7 +37,7 @@ export const errorMap: Record<string, Record<string, string>> = {
   },
   O: {
     "Tidak sesuai":
-      "(1AI) Barcode SN pada BAPP tidak sesuai dengan data web DAC",
+      "(1AI) Barcode SN pada BAPP tidak sesuai dengan data web Zyrex",
     "Tidak ada": "(1AF) Barcode SN pada BAPP tidak ada",
     "Tidak terlihat jelas": "(1AG) Barcode SN pada BAPP tidak terlihat jelas",
   },
@@ -91,6 +91,7 @@ interface RadioOptionProps {
   checked: boolean;
   onChange: (id: string, value: string) => void;
   disabled: boolean;
+  isDanger?: boolean;
 }
 
 const RadioOption = ({
@@ -99,15 +100,19 @@ const RadioOption = ({
   checked,
   onChange,
   disabled,
+  isDanger,
 }: RadioOptionProps) => (
   <button
     type="button"
     onClick={() => onChange(fieldId, option)}
     disabled={disabled}
     className={`px-3 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 mb-1 mr-1
-      ${checked
-        ? "bg-blue-500 border-blue-500 text-white font-semibold"
-        : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
+      ${
+        checked
+          ? isDanger
+            ? "bg-red-600 border-red-600 text-white font-semibold"
+            : "bg-blue-500 border-blue-500 text-white font-semibold"
+          : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
       }`}
   >
     {option}
@@ -199,16 +204,20 @@ export default function Sidebar({
       alert("Tidak ada data untuk disimpan.");
     }
   };
-  // Define Mapping here or outside component
-  const IMAGE_FIELD_MAPPING: Record<number, string[]> = {
-    0: ["G", "H", "I"],
-    1: ["J"],
-    2: ["K"],
-    3: ["O", "Q"],
-    4: ["F", "R", "S", "T"],
-  };
 
-  const [filterMode, setFilterMode] = useState<"specific" | "all">("all");
+  const [viewMode, setViewMode] = useState<"button" | "dropdown">("button");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("sidebarViewMode");
+    if (savedMode === "button" || savedMode === "dropdown") {
+      setViewMode(savedMode);
+    }
+  }, []);
+
+  const handleViewModeChange = (mode: "button" | "dropdown") => {
+    setViewMode(mode);
+    localStorage.setItem("sidebarViewMode", mode);
+  };
 
   // Auto-update reason when form changes
   useEffect(() => {
@@ -277,15 +286,9 @@ export default function Sidebar({
     : "bg-red-600 hover:bg-red-500";
   const mainButtonAction = isFormDefault ? handleTerima : handleTolak;
 
-  // Filter Logic
-  const displayedOptions = sidebarOptions.filter((field) => {
-    if (currentImageIndex === null || filterMode === "all") return true;
 
-    const allowedFields = IMAGE_FIELD_MAPPING[currentImageIndex];
-    if (!allowedFields) return true; // Show all if no mapping found (extra images)
-
-    return allowedFields.includes(field.id);
-  });
+  // Filter Logic - REMOVED (Always show all options now)
+  const displayedOptions = sidebarOptions;
 
 
   return (
@@ -300,32 +303,30 @@ export default function Sidebar({
         />
       </div>
 
-      {/* Top Toolbar: Filter Toggles */}
-      <div className="flex justify-between items-center flex-shrink-0 gap-2">
-        {currentImageIndex !== null ? (
-          <div className="flex bg-gray-700 rounded p-1 flex-grow mb-4">
-            <button
-              onClick={() => setFilterMode("specific")}
-              className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "specific"
+      {/* Top Toolbar: View Mode Toggles */}
+      <div className="flex justify-between items-center flex-shrink-0 gap-2 mb-4">
+        <div className="flex bg-gray-700 rounded p-1 flex-grow">
+          <button
+            onClick={() => handleViewModeChange("button")}
+            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${
+              viewMode === "button"
                 ? "bg-blue-600 text-white shadow"
                 : "text-gray-400 hover:text-gray-200"
-                }`}
-            >
-              Filtered
-            </button>
-            <button
-              onClick={() => setFilterMode("all")}
-              className={`flex-1 py-1 text-xs rounded font-bold transition-all ${filterMode === "all"
+            }`}
+          >
+            Button
+          </button>
+          <button
+            onClick={() => handleViewModeChange("dropdown")}
+            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${
+              viewMode === "dropdown"
                 ? "bg-blue-600 text-white shadow"
                 : "text-gray-400 hover:text-gray-200"
-                }`}
-            >
-              Default
-            </button>
-          </div>
-        ) : (
-          <div className="flex-grow"></div>
-        )}
+            }`}
+          >
+            Dropdown
+          </button>
+        </div>
       </div>
 
       {/* SN BAPP Input - Special Condition: Image Index 3 & Filtered Mode */}
@@ -354,7 +355,7 @@ export default function Sidebar({
       )}
 
       {/* Form Fields */}
-      <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+      <div className="flex-grow overflow-y-auto custom-scrollbar">
         {sidebarOptions.length === 0 ? (
           <div className="text-gray-400 text-sm text-center mt-10">
             Loading form options...
@@ -362,21 +363,44 @@ export default function Sidebar({
         ) : (
           <div className="flex flex-col gap-1">
             {displayedOptions.map((field) => (
-              <div key={field.id} className="text-left text-sm">
+              <div key={field.id} className="text-left text-xs">
                 <label className="font-semibold text-gray-300 block">
                   {field.label}
                 </label>
                 <div className="flex flex-wrap gap-1">
-                  {field.options.map((opt) => (
-                    <RadioOption
-                      key={opt}
-                      fieldId={field.id}
-                      option={opt}
-                      checked={evaluationForm[field.id] === opt}
-                      onChange={handleFormChange}
+                  {viewMode === "button" ? (
+                    field.options.map((opt) => (
+                      <RadioOption
+                        key={opt}
+                        fieldId={field.id}
+                        option={opt}
+                        checked={evaluationForm[field.id] === opt}
+                        onChange={handleFormChange}
+                        disabled={buttonsDisabled}
+                        isDanger={opt !== field.options[0]}
+                      />
+                    ))
+                  ) : (
+                    <select
+                      value={evaluationForm[field.id] || field.options[0]}
+                      onChange={(e) =>
+                        handleFormChange(field.id, e.target.value)
+                      }
                       disabled={buttonsDisabled}
-                    />
-                  ))}
+                      className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border ${
+                        (evaluationForm[field.id] || field.options[0]) !==
+                        field.options[0]
+                          ? "bg-red-500 border-red-200"
+                          : "bg-gray-700 border-gray-600 focus:border-blue-500"
+                      }`}
+                    >
+                      {field.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
             ))}
@@ -493,7 +517,7 @@ export default function Sidebar({
                     {/* User Info */}
                     <div className="mb-4 text-xs space-y-2 border-b border-gray-700 pb-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-500 font-bold">DAC:</span>
+                        <span className="text-gray-500 font-bold">DAC (Zyrex):</span>
                         <span className="font-mono text-gray-200">
                           {dacUsername || "-"}
                         </span>
