@@ -12,6 +12,7 @@ interface StickyInfoBoxProps {
   guruList: any[];
   isLoadingGuru: boolean;
   onRefetchDatadik: () => void;
+  isDateEditable?: boolean;
 }
 
 export default function StickyInfoBox({
@@ -24,6 +25,7 @@ export default function StickyInfoBox({
   guruList,
   isLoadingGuru,
   onRefetchDatadik,
+  isDateEditable = false,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
@@ -162,7 +164,6 @@ export default function StickyInfoBox({
             autoComplete="off"
             value={guruSearch}
             onChange={(e) => setGuruSearch(e.target.value)}
-            onMouseEnter={(e) => e.currentTarget.focus()}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 // setGuruSearch(""); // Keep text as per request
@@ -195,9 +196,10 @@ export default function StickyInfoBox({
             <input
               type="date"
               value={date}
+              readOnly={!isDateEditable}
               onChange={(e) => setDate(e.target.value)}
               onWheel={(e) => {
-                if (!date) return;
+                if (!date || !isDateEditable) return;
                 const currentDate = new Date(date);
                 const daysToAdd = e.deltaY > 0 ? -1 : 1;
                 currentDate.setDate(currentDate.getDate() + daysToAdd);
@@ -209,7 +211,8 @@ export default function StickyInfoBox({
                 const day = String(currentDate.getDate()).padStart(2, "0");
                 setDate(`${year}-${month}-${day}`);
               }}
-              className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 text-white focus:outline-none focus:border-yellow-500 text-sm"
+              className={`w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 text-white focus:outline-none focus:border-yellow-500 text-sm ${!isDateEditable ? "opacity-50 cursor-not-allowed" : ""
+                }`}
             />
             <p className="text-[10px] text-zinc-500 mt-1">
               * Pastikan tanggal sesuai dengan BAPP

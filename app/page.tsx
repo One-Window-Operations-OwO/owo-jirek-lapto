@@ -1575,6 +1575,12 @@ export default function Home() {
             onRefetchDatadik={() =>
               fetchDatadik(parsedData?.school?.npsn || "", true)
             }
+            isDateEditable={(() => {
+              const fField = sidebarOptions.find((f) => f.id === "F");
+              if (!fField || fField.options.length < 2) return false;
+              // Enable IF evaluationForm['F'] == index 1 (Second Option)
+              return evaluationForm["F"] === fField.options[1];
+            })()}
           />
 
           <div

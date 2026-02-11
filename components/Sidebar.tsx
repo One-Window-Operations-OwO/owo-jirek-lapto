@@ -107,12 +107,11 @@ const RadioOption = ({
     onClick={() => onChange(fieldId, option)}
     disabled={disabled}
     className={`px-3 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 mb-1 mr-1
-      ${
-        checked
-          ? isDanger
-            ? "bg-red-600 border-red-600 text-white font-semibold"
-            : "bg-blue-500 border-blue-500 text-white font-semibold"
-          : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
+      ${checked
+        ? isDanger
+          ? "bg-red-600 border-red-600 text-white font-semibold"
+          : "bg-blue-500 border-blue-500 text-white font-semibold"
+        : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
       }`}
   >
     {option}
@@ -308,21 +307,19 @@ export default function Sidebar({
         <div className="flex bg-gray-700 rounded p-1 flex-grow">
           <button
             onClick={() => handleViewModeChange("button")}
-            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${
-              viewMode === "button"
-                ? "bg-blue-600 text-white shadow"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
+            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${viewMode === "button"
+              ? "bg-blue-600 text-white shadow"
+              : "text-gray-400 hover:text-gray-200"
+              }`}
           >
             Button
           </button>
           <button
             onClick={() => handleViewModeChange("dropdown")}
-            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${
-              viewMode === "dropdown"
-                ? "bg-blue-600 text-white shadow"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
+            className={`flex-1 py-1 text-xs rounded font-bold transition-all ${viewMode === "dropdown"
+              ? "bg-blue-600 text-white shadow"
+              : "text-gray-400 hover:text-gray-200"
+              }`}
           >
             Dropdown
           </button>
@@ -377,7 +374,15 @@ export default function Sidebar({
                         checked={evaluationForm[field.id] === opt}
                         onChange={handleFormChange}
                         disabled={buttonsDisabled}
-                        isDanger={opt !== field.options[0]}
+                        isDanger={
+                          opt !== field.options[0] &&
+                          opt !== "Sesuai" &&
+                          !(
+                            field.id === "F" &&
+                            field.options.length > 1 &&
+                            opt === field.options[1]
+                          )
+                        }
                       />
                     ))
                   ) : (
@@ -387,12 +392,19 @@ export default function Sidebar({
                         handleFormChange(field.id, e.target.value)
                       }
                       disabled={buttonsDisabled}
-                      className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border ${
-                        (evaluationForm[field.id] || field.options[0]) !==
-                        field.options[0]
+                      className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border ${(evaluationForm[field.id] || field.options[0]) !==
+                          field.options[0] &&
+                          (evaluationForm[field.id] || field.options[0]) !==
+                          "Sesuai" &&
+                          !(
+                            field.id === "F" &&
+                            field.options.length > 1 &&
+                            (evaluationForm[field.id] || field.options[0]) ===
+                            field.options[1]
+                          )
                           ? "bg-red-500 border-red-200"
                           : "bg-gray-700 border-gray-600 focus:border-blue-500"
-                      }`}
+                        }`}
                     >
                       {field.options.map((opt) => (
                         <option key={opt} value={opt}>
