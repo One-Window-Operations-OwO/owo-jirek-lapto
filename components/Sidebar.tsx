@@ -376,12 +376,7 @@ export default function Sidebar({
                         disabled={buttonsDisabled}
                         isDanger={
                           opt !== field.options[0] &&
-                          opt !== "Sesuai" &&
-                          !(
-                            field.id === "F" &&
-                            field.options.length > 1 &&
-                            opt === field.options[1]
-                          )
+                          opt !== "Sesuai"
                         }
                       />
                     ))
@@ -393,17 +388,11 @@ export default function Sidebar({
                       }
                       disabled={buttonsDisabled}
                       className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border ${(evaluationForm[field.id] || field.options[0]) !==
-                          field.options[0] &&
-                          (evaluationForm[field.id] || field.options[0]) !==
-                          "Sesuai" &&
-                          !(
-                            field.id === "F" &&
-                            field.options.length > 1 &&
-                            (evaluationForm[field.id] || field.options[0]) ===
-                            field.options[1]
-                          )
-                          ? "bg-red-500 border-red-200"
-                          : "bg-gray-700 border-gray-600 focus:border-blue-500"
+                        field.options[0] &&
+                        (evaluationForm[field.id] || field.options[0]) !==
+                        "Sesuai"
+                        ? "bg-red-500 border-red-200"
+                        : "bg-gray-700 border-gray-600 focus:border-blue-500"
                         }`}
                     >
                       {field.options.map((opt) => (
