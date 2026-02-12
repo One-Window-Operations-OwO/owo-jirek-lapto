@@ -230,6 +230,11 @@ export default function Sidebar({
   }, [evaluationForm, setCustomReason]);
 
   const handleFormChange = (id: string, value: string) => {
+    // 0. Auto-blur to allow image navigation immediately
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     // 1. Update state form (menggunakan functional update agar bisa memanipulasi field lain secara bersamaan)
     setEvaluationForm((prev) => {
       const newForm = { ...prev, [id]: value };

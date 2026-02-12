@@ -730,6 +730,16 @@ export default function Home() {
   };
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      // Ignore if user is typing in a form field
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "SELECT" ||
+        target.tagName === "TEXTAREA"
+      ) {
+        return;
+      }
+
       if (currentImageIndex === null || !parsedData) return;
 
       if (e.key === "Escape" || e.key === " ") setCurrentImageIndex(null);
@@ -1117,6 +1127,16 @@ export default function Home() {
   // Effect untuk Keyboard dan Mouse Macro di Image Viewer
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      // Ignore if user is typing in a form field
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "SELECT" ||
+        target.tagName === "TEXTAREA"
+      ) {
+        return;
+      }
+
       if (currentImageIndex === null || !parsedData) return;
 
       // ... logika keyboard yang sudah ada (Esc, Panah, Q, E) ...
