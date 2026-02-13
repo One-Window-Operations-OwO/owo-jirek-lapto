@@ -1586,6 +1586,7 @@ export default function Home() {
                 });
             }
           }}
+          readOnlyFields={["F"]}
         />
       </div>
 
@@ -1597,7 +1598,23 @@ export default function Home() {
             itemData={parsedData.item}
             history={parsedData.history}
             date={verificationDate}
-            setDate={setVerificationDate}
+            setDate={(newDate) => {
+              setVerificationDate(newDate);
+              // Auto-select TGL BAPP (F) logic
+              const fieldF = sidebarOptions.find(f => f.id === "F");
+              if (fieldF && fieldF.options.length > 1) {
+                // Check if date matches original BAPP Date (parsedData.bapp_date)
+                // If match -> Index 0 (Default/Valid)
+                // If differs -> Index 1 (Invalid/Red)
+                const isOriginal = newDate === parsedData.bapp_date;
+                const targetOption = isOriginal ? fieldF.options[0] : fieldF.options[1];
+
+                setEvaluationForm(prev => ({
+                  ...prev,
+                  "F": targetOption
+                }));
+              }
+            }}
             // Datadik Props
             kepsek={datadikData.kepsek}
             guruList={datadikData.guruList}
@@ -1605,12 +1622,7 @@ export default function Home() {
             onRefetchDatadik={() =>
               fetchDatadik(parsedData?.school?.npsn || "", true)
             }
-            isDateEditable={(() => {
-              const fField = sidebarOptions.find((f) => f.id === "F");
-              if (!fField || fField.options.length < 2) return false;
-              // Enable IF evaluationForm['F'] == index 1 (Second Option)
-              return evaluationForm["F"] === fField.options[1];
-            })()}
+            isDateEditable={true}
           />
 
           <div

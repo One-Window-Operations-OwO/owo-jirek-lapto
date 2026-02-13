@@ -144,6 +144,7 @@ interface SidebarProps {
   failedStage?: "none" | "submit" | "save-approval";
   errorMessage?: string;
   onRetry?: () => void;
+  readOnlyFields?: string[];
 }
 
 export const defaultEvaluationValues: Record<string, string> = {
@@ -187,6 +188,7 @@ export default function Sidebar({
   failedStage = "none",
   errorMessage = "",
   onRetry,
+  readOnlyFields = [],
 }: SidebarProps & {
   currentImageIndex: number | null;
   snBapp?: string;
@@ -379,7 +381,7 @@ export default function Sidebar({
                         option={opt}
                         checked={evaluationForm[field.id] === opt}
                         onChange={handleFormChange}
-                        disabled={buttonsDisabled}
+                        disabled={buttonsDisabled || readOnlyFields.includes(field.id)}
                         isDanger={
                           opt !== field.options[0] &&
                           opt !== "Sesuai"
@@ -392,7 +394,7 @@ export default function Sidebar({
                       onChange={(e) =>
                         handleFormChange(field.id, e.target.value)
                       }
-                      disabled={buttonsDisabled}
+                      disabled={buttonsDisabled || readOnlyFields.includes(field.id)}
                       className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border disabled:opacity-50 disabled:bg-gray-900 disabled:border-gray-800 disabled:text-gray-500 ${(evaluationForm[field.id] || field.options[0]) !==
                         field.options[0] &&
                         (evaluationForm[field.id] || field.options[0]) !==
