@@ -261,13 +261,23 @@ export default function Home() {
   useEffect(() => {
     if (sheetData.length > 0) {
       if (currentTaskIndex < sheetData.length) {
-        handleSelectItem(sheetData[currentTaskIndex]);
-        // Reset Form
-        setEvaluationForm(defaultEvaluationValues); // Removed constant default
-        // Logic to reset form based on current options will be handled in useEffect or Sidebar
-        setCustomReason("");
-        setSnBapp(sheetData[currentTaskIndex].serial_number);
-        setEnableManualNote(false);
+        const item = sheetData[currentTaskIndex];
+
+        // Cek apakah item yang dirender sudah sama (untuk mencegah reset form saat background update)
+        const isSameItem =
+          parsedData &&
+          parsedData.school.npsn === item.npsn &&
+          parsedData.item.serial_number === item.serial_number;
+
+        handleSelectItem(item);
+
+        // Hanya reset form jika item BERBEDA
+        if (!isSameItem) {
+          setEvaluationForm(defaultEvaluationValues);
+          setCustomReason("");
+          setSnBapp(item.serial_number);
+          setEnableManualNote(false);
+        }
       } else {
         setSelectedSn(null);
         setParsedData(null);

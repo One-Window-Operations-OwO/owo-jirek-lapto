@@ -282,10 +282,7 @@ export default function Sidebar({
   });
 
   const buttonsDisabled =
-    isSubmitting ||
-    pendingCount === null ||
-    pendingCount === 0 ||
-    (processingStatus !== "success" && processingStatus !== "idle");
+    isSubmitting || pendingCount === null || pendingCount === 0;
 
   const mainButtonLabel = isFormDefault ? "TERIMA" : "TOLAK";
   const mainButtonColor = isFormDefault
