@@ -366,6 +366,17 @@ export default function Home() {
 
   const prefetchItem = async (item: any) => {
     const cacheKey = `${item.npsn}_${item.no_bapp}`;
+
+    // 1. Trigger Datadik Prefetch Immediately (Parallel)
+    if (item.npsn && !datadikCache.current.has(item.npsn)) {
+      fetch(`/api/fetch-school-data?npsn=${item.npsn}`, { method: "POST" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data) datadikCache.current.set(item.npsn, data);
+        })
+        .catch((e) => console.error("Prefetch Datadik Error", e));
+    }
+
     if (prefetchCache.current.has(cacheKey)) return;
 
     const currentSessionId = localStorage.getItem("dac_session");
@@ -392,31 +403,20 @@ export default function Home() {
 
         if (awb.SignatureURL) imageUrls.push(awb.SignatureURL);
 
-        // Extract images from extracted HTML if available
-        // Note: parsing HTML here just for images might be expensive,
-        // relying mainly on API data for preloading is safer/faster.
-
         console.log(`Prefetching images for ${item.npsn}:`, imageUrls.length);
 
+        // Modern Preload via ReactDOM (available in React 19 / Next.js 14+)
+        // @ts-ignore - preload might not be in @types/react yet
+        const { preload } = await import("react-dom");
+
         imageUrls.forEach((url: string) => {
-          const img = new Image();
-          img.src = url;
+          preload(url, { as: "image" });
         });
 
         prefetchCache.current.set(cacheKey, json);
       }
     } catch (err) {
       console.error("Prefetch error:", err);
-    }
-
-    // Prefetch Datadik
-    if (item.npsn && !datadikCache.current.has(item.npsn)) {
-      fetch(`/api/fetch-school-data?npsn=${item.npsn}`, { method: "POST" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data) datadikCache.current.set(item.npsn, data);
-        })
-        .catch((e) => console.error("Prefetch Datadik Error", e));
     }
   };
 
