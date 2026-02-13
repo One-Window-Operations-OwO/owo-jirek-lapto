@@ -106,7 +106,7 @@ const RadioOption = ({
     type="button"
     onClick={() => onChange(fieldId, option)}
     disabled={disabled}
-    className={`px-3 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 mb-1 mr-1
+    className={`px-3 py-1 text-xs rounded-full border transition-colors disabled:opacity-50 disabled:bg-gray-900 disabled:border-gray-800 disabled:text-gray-500 mb-1 mr-1
       ${checked
         ? isDanger
           ? "bg-red-600 border-red-600 text-white font-semibold"
@@ -282,7 +282,10 @@ export default function Sidebar({
   });
 
   const buttonsDisabled =
-    isSubmitting || pendingCount === null || pendingCount === 0;
+    isSubmitting ||
+    pendingCount === null ||
+    pendingCount === 0 ||
+    (processingStatus !== "success" && processingStatus !== "idle");
 
   const mainButtonLabel = isFormDefault ? "TERIMA" : "TOLAK";
   const mainButtonColor = isFormDefault
@@ -349,7 +352,8 @@ export default function Sidebar({
             value={snBapp}
             onChange={(e) => setSnBapp(e.target.value)}
             placeholder="Input SN if mismatch"
-            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-sm font-mono placeholder-gray-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-sm font-mono placeholder-gray-500 disabled:opacity-50 disabled:bg-gray-900"
+            disabled={buttonsDisabled}
             onMouseEnter={(e) => e.currentTarget.focus()}
             onKeyDown={(e) => e.stopPropagation()}
           />
@@ -392,7 +396,7 @@ export default function Sidebar({
                         handleFormChange(field.id, e.target.value)
                       }
                       disabled={buttonsDisabled}
-                      className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border ${(evaluationForm[field.id] || field.options[0]) !==
+                      className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border disabled:opacity-50 disabled:bg-gray-900 disabled:border-gray-800 disabled:text-gray-500 ${(evaluationForm[field.id] || field.options[0]) !==
                         field.options[0] &&
                         (evaluationForm[field.id] || field.options[0]) !==
                         "Sesuai"
