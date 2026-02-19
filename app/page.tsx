@@ -1031,7 +1031,9 @@ export default function Home() {
 
           // Append to existing note or set as note
           if (finalMessage) {
-            if (!finalMessage.includes(barcodeError)) {
+            // Check for specific error code (1AI) to avoid duplication
+            // ASSHAL might return a slightly different text (e.g. without "web")
+            if (!finalMessage.includes("(1AI)")) {
               finalMessage = `${finalMessage}\n${barcodeError}`;
             }
           } else {
