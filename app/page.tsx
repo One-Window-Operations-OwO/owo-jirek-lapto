@@ -5,6 +5,7 @@ import Login from "@/components/Login";
 import Sidebar, {
   defaultEvaluationValues,
   EvaluationField,
+  errorMap,
 } from "@/components/Sidebar";
 import StickyInfoBox from "@/components/StickyInfoBox";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -1023,10 +1024,34 @@ export default function Home() {
 
       // 4. Proses Simpan Approval
       if (currentDacSession && currentParsedData.extractedId) {
+        let finalStatus = finalNote.length > 0 ? "rejected" : "approved";
+        let finalMessage = finalNote;
+
+        // --- CUSTOM LOGIC: FORCE REJECT IF BARCODE BAPP (O) == "Tidak sesuai" ---
+        // Even if SN Matches (which makes ASSHAL allow it), we must reject it in Zyrex
+        if (payload.bc_bapp_sn === "Tidak sesuai") {
+          finalStatus = "rejected";
+          const barcodeError =
+            errorMap["O"]?.["Tidak sesuai"] ||
+            "Barcode SN pada BAPP tidak sesuai";
+
+          // Append to existing note or set as note
+          if (finalMessage) {
+            // Check for specific error code (1AI) to avoid duplication
+            // ASSHAL might return a slightly different text (e.g. without "web")
+            if (!finalMessage.includes("(1AI)")) {
+              finalMessage = `${finalMessage}\n${barcodeError}`;
+            }
+          } else {
+            finalMessage = barcodeError;
+          }
+        }
+        // ------------------------------------------------------------------------
+
         const approvalPayload = {
-          status: finalNote.length > 0 ? "rejected" : "approved",
+          status: finalStatus,
           id: currentParsedData.extractedId,
-          note: finalNote,
+          note: finalMessage,
           session_id: currentDacSession,
           bapp_id: currentParsedData.bapp_id || "",
           bapp_date: formatToDacISO(verificationDate),
