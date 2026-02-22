@@ -522,6 +522,24 @@ export default function Home() {
       if (mappedImages.length > 0) {
         setCurrentImageIndex(0);
       }
+
+      // Auto-reject jika foto sangat sedikit (≤ 2 gambar = dokumentasi tidak lengkap)
+      if (mappedImages.length <= 3) {
+        setEvaluationForm((prev) => ({
+          ...prev,
+          H: "Tidak ada", // Foto Sekolah
+          I: "Tidak ada", // Foto Box & PIC
+          J: "Tidak ada", // Kelengkapan Unit
+          K: "Tidak ada", // DxDiag
+          O: "Tidak ada", // Barcode SN BAPP
+          Q: "Tidak ada", // BAPP Hal 1
+          R: "Tidak ada", // BAPP Hal 2 → cascade: T, F, S juga akan ikut
+          T: "Tidak ada", // Stempel (cascade dari R)
+          F: "Tidak ada", // Tgl BAPP (cascade dari R)
+          S: "TTD tidak ada", // TTD BAPP (cascade dari R)
+        }));
+        if (setSnBapp) setSnBapp("-");
+      }
     }
   };
   const parseHtml = (html: string, initialExtractedId: string) => {
@@ -1047,6 +1065,20 @@ export default function Home() {
           }
         }
         // ------------------------------------------------------------------------
+
+        // --- CUSTOM LOGIC: PREPEND "Dokumentasi Tidak Lengkap" JIKA FOTO ≤ 2 ---
+        if (currentParsedData.images.length <= 3) {
+          finalStatus = "rejected";
+          const dokLabel = "Dokumentasi Tidak Lengkap";
+          if (finalMessage) {
+            if (!finalMessage.startsWith(dokLabel)) {
+              finalMessage = `${dokLabel}\n${finalMessage}`;
+            }
+          } else {
+            finalMessage = dokLabel;
+          }
+        }
+        // -------------------------------------------------------------------------
 
         const approvalPayload = {
           status: finalStatus,
