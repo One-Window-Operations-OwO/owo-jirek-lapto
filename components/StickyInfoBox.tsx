@@ -1,6 +1,92 @@
 import { useRef, useState, useMemo } from "react";
 import { useDraggable } from "./hooks/useDraggable";
 
+function LogCard({ log }: { log: any }) {
+  const isPositive =
+    log.status.toLowerCase().includes("setuju") ||
+    log.status.toLowerCase().includes("terima");
+  return (
+    <div
+      className={`border rounded p-2 ${isPositive
+          ? "bg-green-900/20 border-green-900/50"
+          : "bg-red-900/20 border-red-900/50"
+        }`}
+    >
+      <div className="flex justify-between items-start mb-1">
+        <span className="text-[10px] text-zinc-500 font-mono">{log.date}</span>
+        <span
+          className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isPositive
+              ? "bg-green-900/50 text-green-400"
+              : "bg-red-900/50 text-red-400"
+            }`}
+        >
+          {log.status}
+        </span>
+      </div>
+      {log.user && (
+        <div className="text-xs font-semibold text-zinc-300 mb-0.5">
+          {log.user}
+        </div>
+      )}
+      <div className="text-xs text-zinc-400 italic">{log.note}</div>
+    </div>
+  );
+}
+
+function HistoryList({ logs }: { logs: any[] }) {
+  const [showOldRejections, setShowOldRejections] = useState(false);
+
+  const rejectionLogs = logs.filter(
+    (l) =>
+      !l.status.toLowerCase().includes("setuju") &&
+      !l.status.toLowerCase().includes("terima")
+  );
+  const approvalLogs = logs.filter(
+    (l) =>
+      l.status.toLowerCase().includes("setuju") ||
+      l.status.toLowerCase().includes("terima")
+  );
+
+  const lastRejection = rejectionLogs[rejectionLogs.length - 1];
+  const olderRejections = rejectionLogs.slice(0, rejectionLogs.length - 1);
+
+  return (
+    <div className="space-y-2">
+      {/* Rejection logs */}
+      {rejectionLogs.length > 0 && (
+        <div className="space-y-2">
+          {olderRejections.length > 0 && (
+            <>
+              <button
+                onClick={() => setShowOldRejections((v) => !v)}
+                className="text-[10px] text-zinc-500 hover:text-zinc-300 w-full text-left"
+              >
+                {showOldRejections
+                  ? "▲ Sembunyikan penolakan lama"
+                  : `▼ Lihat ${olderRejections.length} penolakan lama`}
+              </button>
+              {showOldRejections && (
+                <div className="space-y-2 border-l-2 border-red-900/40 pl-2">
+                  {olderRejections.map((log, idx) => (
+                    <LogCard key={idx} log={log} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          {/* Always show latest rejection */}
+          <LogCard log={lastRejection} />
+        </div>
+      )}
+
+      {/* Approval logs */}
+      {approvalLogs.map((log, idx) => (
+        <LogCard key={`a-${idx}`} log={log} />
+      ))}
+    </div>
+  );
+}
+
 interface StickyInfoBoxProps {
   schoolData: Record<string, string>;
   itemData: Record<string, string>;
@@ -201,7 +287,9 @@ export default function StickyInfoBox({
               min="2025-12-01"
               max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`}
               onWheel={(e) => {
+                e.stopPropagation();
                 if (!date || !isDateEditable) return;
+                e.preventDefault();
                 const currentDate = new Date(date);
                 const daysToAdd = e.deltaY > 0 ? -1 : 1;
                 currentDate.setDate(currentDate.getDate() + daysToAdd);
@@ -250,39 +338,7 @@ export default function StickyInfoBox({
 
           {showHistory && (
             history && history.length > 0 ? (
-              <div className="space-y-3">
-                {history.map((log: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className={`border border-zinc-700 rounded p-2 ${log.status.toLowerCase().includes("setuju") ||
-                      log.status.toLowerCase().includes("terima")
-                      ? "bg-green-900/20 border-green-900/50"
-                      : "bg-red-900/20 border-red-900/50"
-                      }`}
-                  >
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        {log.date}
-                      </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${log.status.toLowerCase().includes("setuju") ||
-                          log.status.toLowerCase().includes("terima")
-                          ? "bg-green-900/50 text-green-400"
-                          : "bg-red-900/50 text-red-400"
-                          }`}
-                      >
-                        {log.status}
-                      </span>
-                    </div>
-                    {log.user && (
-                      <div className="text-xs font-semibold text-zinc-300 mb-0.5">
-                        {log.user}
-                      </div>
-                    )}
-                    <div className="text-xs text-zinc-400 italic">{log.note}</div>
-                  </div>
-                ))}
-              </div>
+              <HistoryList logs={history} />
             ) : (
               <div className="text-xs text-zinc-600 italic">
                 Belum ada riwayat.

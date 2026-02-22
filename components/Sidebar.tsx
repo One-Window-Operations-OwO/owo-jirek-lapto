@@ -334,30 +334,36 @@ export default function Sidebar({
       </div>
 
       {/* SN BAPP Input - Special Condition: Image Index 3 & Filtered Mode */}
-      {snBapp !== undefined && setSnBapp && (
-        <div
-          className={`mb-4 bg-gray-700 p-2 rounded border border-gray-600 ${
-            // Tampilkan jika value BUKAN "Ada" dan BUKAN "Sesuai"
-            evaluationForm["O"] !== "Ada" && evaluationForm["O"] !== "Sesuai"
-              ? "block"
-              : "hidden"
-            }`}
-        >
-          <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block mb-1">
-            Input SN BAPP
-          </label>
-          <input
-            type="text"
-            value={snBapp}
-            onChange={(e) => setSnBapp(e.target.value)}
-            placeholder="Input SN if mismatch"
-            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-sm font-mono placeholder-gray-500 disabled:opacity-50 disabled:bg-gray-900"
-            disabled={buttonsDisabled}
-            onMouseEnter={(e) => e.currentTarget.focus()}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+      {snBapp !== undefined && setSnBapp && (() => {
+        const oVal = evaluationForm["O"];
+        const isVisible = oVal !== "Ada" && oVal !== "Sesuai";
+        const isLocked = oVal === "Tidak ada" || oVal === "Tidak terlihat jelas";
+        return (
+          <div
+            className={`mb-4 bg-gray-700 p-2 rounded border border-gray-600 ${isVisible ? "block" : "hidden"}`}
+          >
+            <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block mb-1">
+              Input SN BAPP {isLocked && <span className="ml-1 text-red-400"></span>}
+            </label>
+            <input
+              type="text"
+              value={snBapp}
+              onChange={(e) => !isLocked && setSnBapp(e.target.value)}
+              placeholder={isLocked ? "—" : "Input SN if mismatch"}
+              readOnly={isLocked}
+              className={`w-full border rounded px-2 py-1 text-sm font-mono focus:outline-none
+                ${isLocked
+                  ? "bg-gray-900 border-gray-700 text-gray-500 cursor-not-allowed opacity-60 select-none"
+                  : "bg-gray-800 border-gray-600 text-white focus:border-blue-500 placeholder-gray-500"
+                }
+                disabled:opacity-50 disabled:bg-gray-900`}
+              disabled={buttonsDisabled}
+              onMouseEnter={(e) => { if (!isLocked) e.currentTarget.focus(); }}
+              onKeyDown={(e) => { if (isLocked) e.preventDefault(); e.stopPropagation(); }}
+            />
+          </div>
+        );
+      })()}
 
       {/* Form Fields */}
       <div className="flex-grow overflow-y-auto custom-scrollbar">

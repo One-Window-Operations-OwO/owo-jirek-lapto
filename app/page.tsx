@@ -98,6 +98,7 @@ export default function Home() {
     null,
   );
   const [imageRotation, setImageRotation] = useState(0);
+  const [showGalleryStrip, setShowGalleryStrip] = useState(true);
 
   // Verification Date
   const [verificationDate, setVerificationDate] = useState(
@@ -515,6 +516,11 @@ export default function Home() {
         bapp_id: summary.bapp_id,
         bapp_date: fetchedDate,
       });
+
+      // Auto-open image viewer if images are available
+      if (mappedImages.length > 0) {
+        setCurrentImageIndex(0);
+      }
     }
   };
   const parseHtml = (html: string, initialExtractedId: string) => {
@@ -1711,10 +1717,73 @@ export default function Home() {
               ›
             </button>
 
-            {/* Caption */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-2 rounded-full text-white font-medium backdrop-blur-md">
-              {parsedData.images[currentImageIndex].title} (
-              {currentImageIndex + 1} / {parsedData.images.length})
+            {/* Bottom: Gallery Strip + Floating Pill */}
+            <div
+              className="flex-shrink-0 z-[60] relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Floating pill — centered above gallery */}
+              <div className="absolute -top-8 left-0 right-0 flex justify-center pointer-events-none z-[70]">
+                <div className="pointer-events-auto flex items-center gap-3 px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10 shadow-lg shadow-black/40">
+                  <span className="bg-yellow-400 text-black text-[11px] font-black px-2.5 py-0.5 rounded-full tabular-nums leading-tight">
+                    {currentImageIndex + 1} / {parsedData.images.length}
+                  </span>
+                  <span className="text-white text-xs font-semibold max-w-[160px] truncate">
+                    {parsedData.images[currentImageIndex].title}
+                  </span>
+                  <span className="w-px h-3.5 bg-white/20" />
+                  <button
+                    onClick={() => setShowGalleryStrip((v) => !v)}
+                    className="text-[11px] font-semibold text-zinc-300 hover:text-white transition-colors"
+                  >
+                    {showGalleryStrip ? "▼ Sembunyikan" : "▲ Tampilkan"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Thumbnail Gallery Strip */}
+              {showGalleryStrip && (
+                <div className="bg-black/70 backdrop-blur-sm border-t border-white/10 px-4 pt-3 pb-2">
+                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                    {parsedData.images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setCurrentImageIndex(idx);
+                          setImageRotation(0);
+                        }}
+                        className={`flex-shrink-0 flex flex-col items-center gap-1 group transition-all ${idx === currentImageIndex
+                          ? "opacity-100"
+                          : "opacity-50 hover:opacity-80"
+                          }`}
+                        title={img.title}
+                      >
+                        <div
+                          className={`w-14 h-14 rounded overflow-hidden border-2 transition-all ${idx === currentImageIndex
+                            ? "border-yellow-400 scale-105 shadow-lg shadow-yellow-400/30"
+                            : "border-white/20 group-hover:border-white/50"
+                            }`}
+                        >
+                          <img
+                            src={img.src}
+                            alt={img.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className={`text-[9px] font-medium truncate w-14 text-center ${idx === currentImageIndex ? "text-yellow-400" : "text-white/50"
+                          }`}>
+                          {img.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Collapsed state: minimal bar to click */}
+              {!showGalleryStrip && (
+                <div className="bg-black/60 border-t border-white/10 h-1" />
+              )}
             </div>
           </div>
         </div>
