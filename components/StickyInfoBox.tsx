@@ -8,16 +8,16 @@ function LogCard({ log }: { log: any }) {
   return (
     <div
       className={`border rounded p-2 ${isPositive
-          ? "bg-green-900/20 border-green-900/50"
-          : "bg-red-900/20 border-red-900/50"
+        ? "bg-green-900/20 border-green-900/50"
+        : "bg-red-900/20 border-red-900/50"
         }`}
     >
       <div className="flex justify-between items-start mb-1">
         <span className="text-[10px] text-zinc-500 font-mono">{log.date}</span>
         <span
           className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isPositive
-              ? "bg-green-900/50 text-green-400"
-              : "bg-red-900/50 text-red-400"
+            ? "bg-green-900/50 text-green-400"
+            : "bg-red-900/50 text-red-400"
             }`}
         >
           {log.status}
@@ -50,8 +50,25 @@ function HistoryList({ logs }: { logs: any[] }) {
   const lastRejection = rejectionLogs[rejectionLogs.length - 1];
   const olderRejections = rejectionLogs.slice(0, rejectionLogs.length - 1);
 
+  // Cek apakah log terakhir dari keseluruhan adalah dari administrator
+  const lastLog = logs[logs.length - 1];
+  const isLastFromAdmin = lastLog && lastLog.user?.toLowerCase().includes("admin");
+  const secondToLastLog = logs.length >= 2 ? logs[logs.length - 2] : null;
+
   return (
     <div className="space-y-2">
+      {/* Jika log terakhir dari admin, tampilkan log sebelumnya sebagai konteks */}
+      {isLastFromAdmin && secondToLastLog && (
+        <div className="space-y-1">
+          <div className="text-[9px] text-zinc-500 uppercase tracking-wider font-semibold">
+            Log Sebelumnya
+          </div>
+          <div className="border-l-2 border-yellow-700/50 pl-2 opacity-70">
+            <LogCard log={secondToLastLog} />
+          </div>
+        </div>
+      )}
+
       {/* Rejection logs */}
       {rejectionLogs.length > 0 && (
         <div className="space-y-2">
