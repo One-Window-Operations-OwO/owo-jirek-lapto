@@ -58,6 +58,10 @@ export default function Home() {
   const [sidebarPosition, setSidebarPosition] = useState<"left" | "right">(
     "left",
   );
+  const [autoOpenImage, setAutoOpenImage] = useState(false);
+  const autoOpenImageRef = useRef(false);
+  const [autoRejectMissingPhotos, setAutoRejectMissingPhotos] = useState(true);
+  const autoRejectRef = useRef(true);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [manualNote, setManualNote] = useState("");
   const [enableManualNote, setEnableManualNote] = useState(false); // Default OFF
@@ -88,7 +92,27 @@ export default function Home() {
     if (storedPos === "left" || storedPos === "right") {
       setSidebarPosition(storedPos);
     }
+    const storedAutoOpen = localStorage.getItem("autoOpenImage");
+    if (storedAutoOpen !== null) {
+      setAutoOpenImage(JSON.parse(storedAutoOpen));
+      autoOpenImageRef.current = JSON.parse(storedAutoOpen);
+    }
+    const storedAutoReject = localStorage.getItem("autoRejectMissingPhotos");
+    if (storedAutoReject !== null) {
+      setAutoRejectMissingPhotos(JSON.parse(storedAutoReject));
+      autoRejectRef.current = JSON.parse(storedAutoReject);
+    }
   }, []);
+
+  useEffect(() => {
+    autoOpenImageRef.current = autoOpenImage;
+    localStorage.setItem("autoOpenImage", JSON.stringify(autoOpenImage));
+  }, [autoOpenImage]);
+
+  useEffect(() => {
+    autoRejectRef.current = autoRejectMissingPhotos;
+    localStorage.setItem("autoRejectMissingPhotos", JSON.stringify(autoRejectMissingPhotos));
+  }, [autoRejectMissingPhotos]);
 
   const handleSetSidebarPosition = (pos: "left" | "right") => {
     setSidebarPosition(pos);
@@ -521,12 +545,12 @@ export default function Home() {
       });
 
       // Auto-open image viewer if images are available
-      if (mappedImages.length > 0) {
+      if (mappedImages.length > 0 && autoOpenImageRef.current) {
         setCurrentImageIndex(0);
       }
 
-      // Auto-reject jika foto sangat sedikit (≤ 2 gambar = dokumentasi tidak lengkap)
-      if (mappedImages.length < 3) {
+      // Auto-reject jika foto sangat sedikit (< 3 gambar = dokumentasi tidak lengkap)
+      if (mappedImages.length < 3 && autoRejectRef.current) {
         setEvaluationForm((prev) => ({
           ...prev,
           H: "Tidak ada", // Foto Sekolah
@@ -1599,6 +1623,10 @@ export default function Home() {
           setSnBapp={setSnBapp}
           position={sidebarPosition}
           setPosition={handleSetSidebarPosition}
+          autoOpenImage={autoOpenImage}
+          setAutoOpenImage={setAutoOpenImage}
+          autoRejectMissingPhotos={autoRejectMissingPhotos}
+          setAutoRejectMissingPhotos={setAutoRejectMissingPhotos}
           enableManualNote={enableManualNote}
           setEnableManualNote={setEnableManualNote}
           dacUsername={dacUsername}

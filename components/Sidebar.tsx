@@ -133,6 +133,10 @@ interface SidebarProps {
   sidebarOptions: EvaluationField[];
   position: "left" | "right";
   setPosition: (pos: "left" | "right") => void;
+  autoOpenImage?: boolean;
+  setAutoOpenImage?: (val: boolean) => void;
+  autoRejectMissingPhotos?: boolean;
+  setAutoRejectMissingPhotos?: (val: boolean) => void;
   enableManualNote: boolean;
   setEnableManualNote: (val: boolean) => void;
   dacUsername?: string;
@@ -178,6 +182,10 @@ export default function Sidebar({
   setSnBapp,
   position,
   setPosition,
+  autoOpenImage,
+  setAutoOpenImage,
+  autoRejectMissingPhotos,
+  setAutoRejectMissingPhotos,
   enableManualNote,
   setEnableManualNote,
   dacUsername,
@@ -571,6 +579,38 @@ export default function Sidebar({
                             }`}
                         >
                           Right
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Auto-open Image Toggle */}
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center bg-gray-900 p-2 rounded border border-gray-600 mb-2">
+                        <span className="text-xs font-bold text-gray-400">Auto-open Image</span>
+                        <button
+                          onClick={() => setAutoOpenImage && setAutoOpenImage(!autoOpenImage)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${autoOpenImage ? "bg-blue-600" : "bg-gray-600"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoOpenImage ? "translate-x-5" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Auto-reject < 3 Photos Toggle */}
+                      <div className="flex justify-between items-center bg-gray-900 p-2 rounded border border-gray-600">
+                        <span className="text-xs font-bold text-gray-400">Auto-reject (&lt;3 Photos)</span>
+                        <button
+                          onClick={() => setAutoRejectMissingPhotos && setAutoRejectMissingPhotos(!autoRejectMissingPhotos)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${autoRejectMissingPhotos ? "bg-red-600" : "bg-gray-600"
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoRejectMissingPhotos ? "translate-x-5" : "translate-x-1"
+                              }`}
+                          />
                         </button>
                       </div>
                     </div>
