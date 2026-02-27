@@ -21,7 +21,7 @@ interface ApprovalLog {
 interface ExtractedData {
   school: Record<string, string>;
   item: Record<string, string>;
-  images: Array<{ src: string; title: string }>;
+  images: Array<{ src: string; title: string; type?: string }>;
   history: ApprovalLog[]; // Simple array of strings for history
   extractedId: string;
   resi: string;
@@ -498,7 +498,7 @@ export default function Home() {
 
   const setParsedDataFromJSON = (json: any, item: any) => {
     if (json.success) {
-      const { summary, awb, comments, extractedId } = json.data;
+      const { summary, awb, comments, perbaikan, extractedId } = json.data;
       const lastHistory = awb.History.at(-1);
       const fetchedDate =
         lastHistory && lastHistory.date
@@ -512,7 +512,17 @@ export default function Home() {
         .map((key) => ({
           src: photoList[key],
           title: key.toUpperCase(),
+          type: "main",
         }));
+
+      const perbaikanImages = (perbaikan || []).map((p: any, idx: number) => ({
+        src: p.image_url,
+        title: `PERBAIKAN ${idx + 1}`,
+        type: "perbaikan",
+      }));
+
+      const allImages = [...mappedImages, ...perbaikanImages];
+
       setVerificationDate(fetchedDate);
       // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
 
@@ -535,7 +545,7 @@ export default function Home() {
           serial_number: awb.OrderID || "-",
           nama_barang: summary.school_name || "-",
         },
-        images: mappedImages,
+        images: allImages,
         // Gabungkan riwayat logistik (AWB) dan riwayat approval (Comment) jika perlu
         // Di sini kita tampilkan riwayat logistik dari awb.History
         history: [...historyComments],
@@ -1556,7 +1566,7 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {parsedData.images.map((img, idx) => (
+                  {parsedData.images.map((img, idx) => img.type !== "perbaikan" ? (
                     <div
                       key={idx}
                       className="group relative cursor-pointer"
@@ -1576,9 +1586,41 @@ export default function Home() {
                         {img.title}
                       </p>
                     </div>
-                  ))}
+                  ) : null)}
                 </div>
               </div>
+
+              {/* Dokumentasi Perbaikan Gallery */}
+              {parsedData.images.some(img => img.type === "perbaikan") && (
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-5">
+                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4 border-b dark:border-zinc-700 pb-2">
+                    Dokumentasi Perbaikan
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {parsedData.images.map((img, idx) => img.type === "perbaikan" ? (
+                      <div
+                        key={idx}
+                        className="group relative cursor-pointer"
+                        onClick={() => {
+                          setCurrentImageIndex(idx);
+                          setImageRotation(0);
+                        }}
+                      >
+                        <div className="aspect-square w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900">
+                          <img
+                            src={img.src}
+                            alt={img.title}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </div>
+                        <p className="mt-2 text-xs font-medium text-center text-zinc-600 dark:text-zinc-400 truncate">
+                          {img.title}
+                        </p>
+                      </div>
+                    ) : null)}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center flex-col gap-4 text-zinc-500">

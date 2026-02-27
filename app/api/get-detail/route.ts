@@ -42,11 +42,11 @@ export async function POST(request: Request) {
     });
 
     const noResi = bappSummary.nomor_resi;
-    const bappIdUnique = bappSummary.ID; // ID: 35900
+    const bappIdUnique = bappSummary.id || bappSummary.ID; // Handle lowercase or uppercase
     const bappIdString = bappSummary.bapp_id; // ZMB/02/50046
 
     // TAHAP 2: Hit detail lengkap (AWB untuk foto, dan Comment untuk log approval) secara paralel
-    const [resAwb, resComment] = await Promise.all([
+    const [resAwb, resComment, resPerbaikan] = await Promise.all([
       fetch(`https://api.kemendikdasmen.zyrex.com/api/awb/${noResi}`, {
         headers,
       }),
@@ -54,16 +54,33 @@ export async function POST(request: Request) {
         `https://api.kemendikdasmen.zyrex.com/api/comment/${encodeURIComponent(bappIdString)}`,
         { headers },
       ).catch(() => null),
+      fetch(
+        `https://api.kemendikdasmen.zyrex.com/api/additional-image/bapp/${bappIdUnique}`,
+        { headers },
+      ).catch(() => null),
     ]);
 
     const awbDetail = await resAwb.json().catch(() => ({}));
     const comments = resComment ? await resComment.json().catch(() => []) : [];
+
+    let perbaikanLog = [];
+    if (resPerbaikan) {
+      try {
+        const text = await resPerbaikan.text();
+        const parsed = JSON.parse(text);
+        perbaikanLog = Array.isArray(parsed) ? parsed : (parsed?.data || []);
+      } catch (e) {
+        console.error("Failed to parse perbaikan response:", e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         summary: bappSummary, // Berisi school_name, provinsi, kabupaten
         awb: awbDetail, // Berisi ListPhotoJSON dan History logistik
         comments: comments, // Berisi riwayat catatan approval
+        perbaikan: perbaikanLog, // Berisi foto dokumentasi perbaikan
         extractedId: bappIdUnique,
       },
     });
