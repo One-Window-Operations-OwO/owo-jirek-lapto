@@ -80,6 +80,8 @@ export default function Home() {
     currentParsedData?: ExtractedData;
   }>({});
   const [errorMessage, setErrorMessage] = useState("");
+  // Submission Queue — tracks background submissions in order
+  const [submissionQueue, setSubmissionQueue] = useState<Array<{ npsn: string; sn: string }>>([]);
 
   useEffect(() => {
     const storedPos = localStorage.getItem("sidebar_layout");
@@ -863,6 +865,10 @@ export default function Home() {
       setIsSubmitting(false); // Re-enable UI for Modal interaction
     } else {
       // FAST PATH: Optimistic Update
+      // Push to queue before starting background process
+      const queueItem = { npsn: currentItem.npsn, sn: currentItem.serial_number };
+      setSubmissionQueue(prev => [...prev, queueItem]);
+
       // Fire and forget the background process
       handleSubmissionProcess(
         session,
@@ -870,7 +876,10 @@ export default function Home() {
         currentItem,
         parsedData,
         false, // shouldWaitUser
-      );
+      ).finally(() => {
+        // Remove the first item in the queue (FIFO) after completion
+        setSubmissionQueue(prev => prev.slice(1));
+      });
 
       // Optimistic Skip
       handleSkip(false);
@@ -1600,6 +1609,7 @@ export default function Home() {
           processingStatus={processingStatus}
           failedStage={failedStage}
           errorMessage={errorMessage}
+          submissionQueue={submissionQueue}
           onRetry={() => {
             const session = localStorage.getItem("datasource_session") || "";
             if (!session) return;

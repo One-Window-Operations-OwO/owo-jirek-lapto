@@ -145,6 +145,7 @@ interface SidebarProps {
   errorMessage?: string;
   onRetry?: () => void;
   readOnlyFields?: string[];
+  submissionQueue?: Array<{ npsn: string; sn: string }>;
 }
 
 export const defaultEvaluationValues: Record<string, string> = {
@@ -189,6 +190,7 @@ export default function Sidebar({
   errorMessage = "",
   onRetry,
   readOnlyFields = [],
+  submissionQueue = [],
 }: SidebarProps & {
   currentImageIndex: number | null;
   snBapp?: string;
@@ -306,6 +308,7 @@ export default function Sidebar({
           failedStage={failedStage}
           errorMessage={errorMessage}
           onRetry={onRetry || (() => { })}
+          queue={submissionQueue}
         />
       </div>
 
