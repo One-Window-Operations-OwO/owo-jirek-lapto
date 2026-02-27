@@ -526,7 +526,7 @@ export default function Home() {
       }
 
       // Auto-reject jika foto sangat sedikit (≤ 2 gambar = dokumentasi tidak lengkap)
-      if (mappedImages.length <= 3) {
+      if (mappedImages.length < 3) {
         setEvaluationForm((prev) => ({
           ...prev,
           H: "Tidak ada", // Foto Sekolah
