@@ -293,10 +293,11 @@ export default function Sidebar({
     return evaluationForm[field.id] === defaultVal;
   });
 
-  const buttonsDisabled =
-    isSubmitting || pendingCount === null || pendingCount === 0;
+  const formDisabled = pendingCount === null || pendingCount === 0;
+  const isQueueFull = submissionQueue.length >= 2;
+  const submitDisabled = isSubmitting || pendingCount === null || pendingCount === 0 || isQueueFull;
 
-  const mainButtonLabel = isFormDefault ? "TERIMA" : "TOLAK";
+  const mainButtonLabel = isQueueFull ? "ANTREAN PENUH..." : (isFormDefault ? "TERIMA" : "TOLAK");
   const mainButtonColor = isFormDefault
     ? "bg-green-600 hover:bg-green-500"
     : "bg-red-600 hover:bg-red-500";
@@ -368,7 +369,7 @@ export default function Sidebar({
                   : "bg-gray-800 border-gray-600 text-white focus:border-blue-500 placeholder-gray-500"
                 }
                 disabled:opacity-50 disabled:bg-gray-900`}
-              disabled={buttonsDisabled}
+              disabled={formDisabled}
               onMouseEnter={(e) => { if (!isLocked) e.currentTarget.focus(); }}
               onKeyDown={(e) => { if (isLocked) e.preventDefault(); e.stopPropagation(); }}
             />
@@ -398,7 +399,7 @@ export default function Sidebar({
                         option={opt}
                         checked={evaluationForm[field.id] === opt}
                         onChange={handleFormChange}
-                        disabled={buttonsDisabled || readOnlyFields.includes(field.id)}
+                        disabled={formDisabled || readOnlyFields.includes(field.id)}
                         isDanger={
                           opt !== field.options[0] &&
                           opt !== "Sesuai"
@@ -411,7 +412,7 @@ export default function Sidebar({
                       onChange={(e) =>
                         handleFormChange(field.id, e.target.value)
                       }
-                      disabled={buttonsDisabled || readOnlyFields.includes(field.id)}
+                      disabled={formDisabled || readOnlyFields.includes(field.id)}
                       className={`w-full rounded px-2 py-1 text-xs text-white focus:outline-none mb-1 border disabled:opacity-50 disabled:bg-gray-900 disabled:border-gray-800 disabled:text-gray-500 ${(evaluationForm[field.id] || field.options[0]) !==
                         field.options[0] &&
                         (evaluationForm[field.id] || field.options[0]) !==
@@ -697,19 +698,19 @@ export default function Sidebar({
         <div className="flex gap-2">
           <button
             onClick={() => handleSkip(true)}
-            disabled={buttonsDisabled}
-            className={`flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors ${isSubmitting ? "animate-pulse" : ""
+            disabled={submitDisabled}
+            className={`flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors ${isSubmitting || isQueueFull ? "animate-pulse" : ""
               }`}
           >
-            {isSubmitting ? <Spinner /> : "SKIP"}
+            {isSubmitting || isQueueFull ? <Spinner /> : "SKIP"}
           </button>
           <button
             onClick={mainButtonAction}
-            disabled={buttonsDisabled}
-            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor} ${isSubmitting ? "animate-pulse" : ""
+            disabled={submitDisabled}
+            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor} ${isSubmitting || isQueueFull ? "animate-pulse" : ""
               }`}
           >
-            {isSubmitting ? <Spinner /> : mainButtonLabel}
+            {isSubmitting || isQueueFull ? <Spinner /> : mainButtonLabel}
           </button>
         </div>
       </div>

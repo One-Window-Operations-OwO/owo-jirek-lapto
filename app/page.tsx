@@ -52,6 +52,7 @@ export default function Home() {
   const [sidebarOptions, setSidebarOptions] = useState<EvaluationField[]>([]);
   const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [snBapp, setSnBapp] = useState("");
 
   // Sidebar Layout State
@@ -834,8 +835,9 @@ export default function Home() {
   }, [currentImageIndex, parsedData]);
 
   const submitToDataSource = async (isApproved: boolean) => {
-    // Prevent double clicking
-    if (isSubmitting) return;
+    // Prevent double clicking or exceeding queue limit
+    if (isSubmitting || isSubmittingRef.current || submissionQueue.length >= 2) return;
+    isSubmittingRef.current = true;
 
     const session = localStorage.getItem("datasource_session");
     if (!session || !parsedData || sheetData.length === 0) return;
@@ -886,6 +888,7 @@ export default function Home() {
         parsedData,
         true, // shouldWaitUser
       );
+      isSubmittingRef.current = false;
       setIsSubmitting(false); // Re-enable UI for Modal interaction
     } else {
       // FAST PATH: Optimistic Update
@@ -893,7 +896,7 @@ export default function Home() {
       const queueItem = { npsn: currentItem.npsn, sn: currentItem.serial_number };
       setSubmissionQueue(prev => [...prev, queueItem]);
 
-      // Fire and forget the background process
+      // Start the background process and wait for it to finish
       handleSubmissionProcess(
         session,
         payload,
@@ -901,17 +904,16 @@ export default function Home() {
         parsedData,
         false, // shouldWaitUser
       ).finally(() => {
-        // Remove the first item in the queue (FIFO) after completion
-        setSubmissionQueue(prev => prev.slice(1));
+        // Remove the specific item from the queue
+        setSubmissionQueue(prev => prev.filter(i => i.npsn !== queueItem.npsn || i.sn !== queueItem.sn));
       });
 
       // Optimistic Skip
       handleSkip(false);
 
-      // Re-enable buttons after short delay
-      setTimeout(() => {
-        setIsSubmitting(false);
-      }, 500);
+      // Re-enable buttons immediately for next data
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -939,76 +941,66 @@ export default function Home() {
       setErrorMessage("");
     }
 
-    let attempt = 0;
     let submitSuccess = false;
 
     // Cek apakah kita melewati tahap submit (jika retry spesifik di tahap approval)
     const skipSubmit = isRetry && failedStage === "save-approval";
 
-    // 2. Loop Proses Submit (dengan Limit 3x Percobaan)
+    // 2. Proses Submit ke Datasource (Tanpa loop retry otomatis untuk mencegah duplicate hit)
     if (!skipSubmit) {
-      while (true) {
-        attempt++;
+      try {
+        const res = await fetch("/api/datasource/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload, cookie: session }),
+        });
 
-        if (attempt > 3) {
-          console.error("Max retries reached for submit");
-          setProcessingStatus("error");
-          setFailedStage("submit");
-          setErrorMessage("Gagal submit ke datasource setelah 3 percobaan");
-          return;
-        }
+        const json = await res.json();
 
-        try {
-          const res = await fetch("/api/datasource/submit", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ payload, cookie: session }),
-          });
+        if (json.success) {
+          // --- LOGIKA UPDATE LOCAL STORAGE (DARI STASHED) ---
+          const cachedData = localStorage.getItem("cached_scraped_data");
+          if (cachedData) {
+            try {
+              let parsedCache = JSON.parse(cachedData);
+              const indexToRemove = parsedCache.findIndex(
+                (c: any) =>
+                  c.npsn === item.npsn && c.no_bapp === item.no_bapp,
+              );
 
-          const json = await res.json();
-
-          if (json.success) {
-            // --- LOGIKA UPDATE LOCAL STORAGE (DARI STASHED) ---
-            const cachedData = localStorage.getItem("cached_scraped_data");
-            if (cachedData) {
-              try {
-                let parsedCache = JSON.parse(cachedData);
-                const indexToRemove = parsedCache.findIndex(
-                  (c: any) =>
-                    c.npsn === item.npsn && c.no_bapp === item.no_bapp,
+              if (indexToRemove !== -1) {
+                parsedCache.splice(indexToRemove, 1);
+                localStorage.setItem(
+                  "cached_scraped_data",
+                  JSON.stringify(parsedCache),
                 );
 
-                if (indexToRemove !== -1) {
-                  parsedCache.splice(indexToRemove, 1);
-                  localStorage.setItem(
-                    "cached_scraped_data",
-                    JSON.stringify(parsedCache),
-                  );
-
-                  // Sinkronisasi UI
-                  setSheetData(parsedCache);
-                  setCurrentTaskIndex(0);
-                }
-              } catch (e) {
-                console.error("Gagal update cache lokal setelah submit", e);
+                // Sinkronisasi UI
+                setSheetData(parsedCache);
+                setCurrentTaskIndex(0);
               }
+            } catch (e) {
+              console.error("Gagal update cache lokal setelah submit", e);
             }
-
-            console.log(
-              `Submitted ${item.npsn} (${shouldWaitUser ? "Manual Note" : "Background"})`,
-            );
-            submitSuccess = true;
-            break; // Keluar dari loop while
-          } else {
-            console.error(`Submit Failed (Attempt ${attempt}):`, json.message);
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            continue;
           }
-        } catch (e) {
-          console.error(`Submit Process Error (Attempt ${attempt}):`, e);
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          continue;
+
+          console.log(
+            `Submitted ${item.npsn} (${shouldWaitUser ? "Manual Note" : "Background"})`,
+          );
+          submitSuccess = true;
+        } else {
+          console.error(`Submit Failed:`, json.message);
+          setProcessingStatus("error");
+          setFailedStage("submit");
+          setErrorMessage(`Gagal submit: ${json.message || "Unknown error"}`);
+          return;
         }
+      } catch (e) {
+        console.error(`Submit Process Error:`, e);
+        setProcessingStatus("error");
+        setFailedStage("submit");
+        setErrorMessage("Terjadi kesalahan jaringan saat submit");
+        return;
       }
     } else {
       submitSuccess = true;
