@@ -286,6 +286,65 @@ export default function Home() {
     }
   }, [dacAuthenticated, dataSourceAuthenticated]);
 
+  // Realtime Polling for Pending Data
+  useEffect(() => {
+    if (!dacAuthenticated || !dataSourceAuthenticated) return;
+
+    const intervalId = setInterval(async () => {
+      const dsSession = localStorage.getItem("datasource_session");
+      if (!dsSession) return;
+      try {
+        const res = await fetch("/api/datasource/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cookie: dsSession }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          let filtered = json.data.filter(
+            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+          );
+          if (
+            typeof window !== "undefined" &&
+            window.location.search.includes("reverse=true")
+          ) {
+            filtered.reverse();
+          }
+
+          const currentItem = sheetData[currentTaskIndex];
+
+          if (!currentItem) {
+            setSheetData(filtered);
+            setCurrentTaskIndex(0);
+            return;
+          }
+
+          const newIndex = filtered.findIndex(
+            (item: any) =>
+              item.serial_number === currentItem.serial_number &&
+              item.npsn === currentItem.npsn,
+          );
+
+          if (newIndex !== -1) {
+            // Item is still pending, update list and adjust index to avoid disrupting the active task
+            setSheetData(filtered);
+            setCurrentTaskIndex(newIndex);
+          } else {
+            // Active item is no longer in the pending list (e.g. processed by someone else)
+            // Keep it locally so the user doesn't lose work, but append the updated queue
+            const merged = [currentItem, ...filtered];
+            setSheetData(merged);
+            setCurrentTaskIndex(0);
+          }
+        }
+      } catch (e) {
+        console.error("Background polling error:", e);
+      }
+    }, 15000); // Poll every 15 seconds
+
+    return () => clearInterval(intervalId);
+  }, [dacAuthenticated, dataSourceAuthenticated, sheetData, currentTaskIndex]);
+
   // Navigate/Auto-select Logic
   useEffect(() => {
     if (sheetData.length > 0) {
@@ -1295,22 +1354,33 @@ export default function Home() {
     await submitToDataSource(false);
   };
   const handleSkip = (skipped: boolean) => {
-    // Jika data tinggal 1 atau tidak ada, tidak perlu memindahkan urutan
+    // Jika data tinggal 1 atau tidak ada, tidak perlu memindahkan urutan/menghapus jika skip
     if (sheetData.length <= 1) {
       if (sheetData.length === 1) {
-        // Opsional: Beri notifikasi jika hanya sisa 1 data
-        console.log("Hanya tersisa 1 data, tidak bisa skip ke belakang.");
+        if (!skipped) {
+          // Data terakhir berhasil diproses, kosongkan state
+          setSheetData([]);
+          setParsedData(null);
+        } else {
+          // Opsional: Beri notifikasi jika hanya sisa 1 data
+          console.log("Hanya tersisa 1 data, tidak bisa skip ke belakang.");
+        }
       }
       return;
     }
 
-    // 1. Ambil data yang sedang aktif (yang akan di-skip)
+    // 1. Ambil data yang sedang aktif (yang akan di-skip/diproses)
     const currentItem = sheetData[currentTaskIndex];
 
-    // 2. Buat list baru dengan memindahkan currentItem ke posisi paling belakang
+    // 2. Buat list baru (hapus dari posisi saat ini)
     const newSheetData = [...sheetData];
-    newSheetData.splice(currentTaskIndex, 1); // Hapus dari posisi saat ini
-    newSheetData.push(currentItem); // Masukkan ke posisi terakhir
+    newSheetData.splice(currentTaskIndex, 1);
+
+    // Jika hanya menekan "Skip", masukkan ke posisi terakhir.
+    // Jika memproses (Terima/Tolak), JANGAN dimasukkan kembali agar antrean instant berkurang.
+    if (skipped) {
+      newSheetData.push(currentItem);
+    }
 
     // 3. Ambil item yang sekarang menjadi urutan pertama (untuk update UI)
     const nextItem = newSheetData[0];
