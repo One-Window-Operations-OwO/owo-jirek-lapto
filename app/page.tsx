@@ -478,6 +478,20 @@ export default function Home() {
     }
   };
 
+  const formatDateOnly = (isoString: string): string => {
+    if (!isoString) return "-";
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return isoString;
+    }
+  };
+
   const setParsedDataFromJSON = (json: any, item: any) => {
     if (json.success) {
       const { summary, awb, comments, perbaikan, extractedId } = json.data;
@@ -505,7 +519,11 @@ export default function Home() {
 
       const allImages = [...mappedImages, ...perbaikanImages];
 
-      setVerificationDate(fetchedDate);
+      const bappDateString = summary?.bapp_date
+        ? summary.bapp_date.substring(0, 10)
+        : fetchedDate;
+
+      setVerificationDate(bappDateString);
       // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
 
       const historyComments = (comments || []).map((c: any) => ({
@@ -528,13 +546,11 @@ export default function Home() {
           nama_barang: summary.school_name || "-",
         },
         images: allImages,
-        // Gabungkan riwayat logistik (AWB) dan riwayat approval (Comment) jika perlu
-        // Di sini kita tampilkan riwayat logistik dari awb.History
         history: [...historyComments],
         extractedId: extractedId,
         resi: awb.ConnoteNumber || summary.nomor_resi,
         bapp_id: summary.bapp_id,
-        bapp_date: fetchedDate,
+        bapp_date: summary.bapp_date || fetchedDate,
       });
 
       // Auto-open image viewer if images are available
@@ -1452,6 +1468,11 @@ export default function Home() {
                     label="Serial Number"
                     value={parsedData.item.serial_number}
                   />
+                  <InfoItem
+                    label="Tanggal BAPP"
+                    value={parsedData.bapp_date ? formatDateOnly(parsedData.bapp_date) : "-"}
+                  />
+
                 </div>
               </div>
               {/* Log Approval Section */}
@@ -1706,6 +1727,8 @@ export default function Home() {
               }
             }}
             isDateEditable={true}
+            bapp_date={parsedData.bapp_date}
+
           />
 
           <div

@@ -111,6 +111,7 @@ interface StickyInfoBoxProps {
   date?: string;
   setDate?: (date: string) => void;
   isDateEditable?: boolean;
+  bapp_date?: string;
 }
 
 export default function StickyInfoBox({
@@ -120,6 +121,7 @@ export default function StickyInfoBox({
   date,
   setDate,
   isDateEditable = false,
+  bapp_date,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
@@ -202,6 +204,7 @@ export default function StickyInfoBox({
         </div>
 
         <hr className="border-zinc-700" />
+
 
         {/* Date Input */}
         {date !== undefined && setDate && (
