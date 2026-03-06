@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState } from "react";
 import { useDraggable } from "./hooks/useDraggable";
 
 function LogCard({ log }: { log: any }) {
@@ -110,11 +110,6 @@ interface StickyInfoBoxProps {
   history: any[];
   date?: string;
   setDate?: (date: string) => void;
-  // Datadik Props
-  kepsek: string | null;
-  guruList: any[];
-  isLoadingGuru: boolean;
-  onRefetchDatadik: () => void;
   isDateEditable?: boolean;
 }
 
@@ -124,10 +119,6 @@ export default function StickyInfoBox({
   history,
   date,
   setDate,
-  kepsek,
-  guruList,
-  isLoadingGuru,
-  onRefetchDatadik,
   isDateEditable = false,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
@@ -136,38 +127,7 @@ export default function StickyInfoBox({
     "sticky-info-box",
   );
 
-  // PTK Search State
-  const [guruSearch, setGuruSearch] = useState("");
   const [showHistory, setShowHistory] = useState(true);
-
-
-  const filteredGuru = useMemo(() => {
-    const pattern = guruSearch.trim().toLowerCase();
-    if (!pattern) return [];
-    if (pattern.length <= 1) return [];
-    return guruList
-      .filter(
-        (g) =>
-          (g.nama || "").toLowerCase().includes(pattern) ||
-          (g.jabatan || "").toLowerCase().includes(pattern)
-      )
-      .slice(0, 5);
-  }, [guruList, guruSearch]);
-
-  const renderGuruItem = (g: any, idx: number) => {
-    return (
-      <div
-        key={idx}
-        className="block text-[13px] leading-[1.5] px-3 py-2 text-zinc-300 border-b border-zinc-800 cursor-pointer bg-zinc-900 hover:bg-zinc-800 transition-colors whitespace-nowrap overflow-hidden text-ellipsis"
-      >
-        <b className="text-zinc-200">{g.nama}</b>
-        <br />
-        <span className="text-zinc-500 text-[11px] font-medium">
-          {g.jabatan}
-        </span>
-      </div>
-    );
-  };
 
   return (
     <div
@@ -240,53 +200,6 @@ export default function StickyInfoBox({
             </div>
           </div>
         </div>
-
-        {/* --- PTK / GURU SECTION --- */}
-        <hr className="border-zinc-700" />
-
-        <div className="p-0">
-          <div className="flex justify-between items-center mb-2">
-            <div className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
-              Kepala Sekolah :
-              <button
-                onClick={onRefetchDatadik}
-                className="hover:text-white transition-colors"
-                title="Refetch Datadik"
-              >
-                ↻
-              </button>
-            </div>
-          </div>
-          <div className="mb-3 text-[13px] font-semibold text-zinc-200 bg-sky-900/20 border border-sky-900/50 p-2 rounded block">
-            {isLoadingGuru ? "Loading..." : kepsek || "-"}
-          </div>
-
-          <input
-            className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 mb-2 text-white focus:outline-none focus:border-yellow-500 text-[13px]"
-            placeholder="Cari guru..."
-            autoComplete="off"
-            value={guruSearch}
-            onChange={(e) => setGuruSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                // setGuruSearch(""); // Keep text as per request
-                e.currentTarget.blur();
-              }
-              e.stopPropagation();
-            }}
-          />
-
-          <div className="max-h-[120px] overflow-y-auto border border-zinc-700 bg-zinc-900 rounded p-1 custom-scrollbar">
-            {filteredGuru.length > 0 ? (
-              filteredGuru.map((g, idx) => renderGuruItem(g, idx))
-            ) : (
-              <div className="text-zinc-500 text-xs p-2 text-center">
-                Ketikan nama untuk mencari...
-              </div>
-            )}
-          </div>
-        </div>
-        {/* ------------------------- */}
 
         <hr className="border-zinc-700" />
 

@@ -336,52 +336,34 @@ export default function Home() {
 
   const fetchScrapedData = async () => {
     const dsSession = localStorage.getItem("datasource_session");
-    // We can filter by username/verifikator if needed, but for now grab all or server filters
-    // const username = localStorage.getItem('username');
-
     if (!dsSession) return;
-    const cachedData = localStorage.getItem("cached_scraped_data");
-    if (cachedData) {
-      try {
-        const parsedCache = JSON.parse(cachedData);
-        if (Array.isArray(parsedCache) && parsedCache.length > 0) {
-          console.log("Menggunakan data dari Cache LocalStorage");
-          setSheetData(parsedCache);
-          setCurrentTaskIndex(0);
-          return; // Hentikan fungsi di sini, tidak perlu fetch API
-        }
-      } catch (e) {
-        console.error("Gagal parse data cache", e);
-      }
-    } else {
-      try {
-        const res = await fetch("/api/datasource/scrape", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cookie: dsSession,
-          }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          const filtered = json.data.filter(
-            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
-          );
+    try {
+      const res = await fetch("/api/datasource/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cookie: dsSession,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const filtered = json.data.filter(
+          (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+        );
 
-          if (
-            typeof window !== "undefined" &&
-            window.location.search.includes("reverse=true")
-          ) {
-            filtered.reverse();
-          }
-          setSheetData(filtered);
-          setCurrentTaskIndex(0);
-        } else {
-          console.error("Failed to fetch scraped data:", json.message);
+        if (
+          typeof window !== "undefined" &&
+          window.location.search.includes("reverse=true")
+        ) {
+          filtered.reverse();
         }
-      } catch (e) {
-        console.error("Error fetching scraped data:", e);
+        setSheetData(filtered);
+        setCurrentTaskIndex(0);
+      } else {
+        console.error("Failed to fetch scraped data:", json.message);
       }
+    } catch (e) {
+      console.error("Error fetching scraped data:", e);
     }
   };
 
@@ -556,8 +538,9 @@ export default function Home() {
       });
 
       // Auto-open image viewer if images are available
-      if (mappedImages.length > 0 && autoOpenImageRef.current) {
+      if (allImages.length > 0 && autoOpenImageRef.current) {
         setCurrentImageIndex(0);
+        setImageRotation(0);
       }
 
       // Auto-reject jika foto sangat sedikit (< 3 gambar = dokumentasi tidak lengkap)
@@ -968,31 +951,6 @@ export default function Home() {
         const json = await res.json();
 
         if (json.success) {
-          // --- LOGIKA UPDATE LOCAL STORAGE (DARI STASHED) ---
-          const cachedData = localStorage.getItem("cached_scraped_data");
-          if (cachedData) {
-            try {
-              let parsedCache = JSON.parse(cachedData);
-              const indexToRemove = parsedCache.findIndex(
-                (c: any) =>
-                  c.npsn === item.npsn && c.no_bapp === item.no_bapp,
-              );
-
-              if (indexToRemove !== -1) {
-                parsedCache.splice(indexToRemove, 1);
-                localStorage.setItem(
-                  "cached_scraped_data",
-                  JSON.stringify(parsedCache),
-                );
-
-                // Sinkronisasi UI
-                setSheetData(parsedCache);
-                setCurrentTaskIndex(0);
-              }
-            } catch (e) {
-              console.error("Gagal update cache lokal setelah submit", e);
-            }
-          }
 
           console.log(
             `Submitted ${item.npsn} (${shouldWaitUser ? "Manual Note" : "Background"})`,
@@ -1352,9 +1310,6 @@ export default function Home() {
     // Kita reset ke 0 karena kita ingin selalu memproses item paling atas
     setSheetData(newSheetData);
     setCurrentTaskIndex(0);
-
-    // 6. Sinkronisasi ke LocalStorage (Agar urutan baru tersimpan saat refresh)
-    localStorage.setItem("cached_scraped_data", JSON.stringify(newSheetData));
 
     // 7. Load Detail Data untuk item baru di index 0
     const cacheKey = `${nextItem.npsn}_${nextItem.no_bapp}`;
@@ -1750,13 +1705,6 @@ export default function Home() {
                 }));
               }
             }}
-            // Datadik Props
-            kepsek={datadikData.kepsek}
-            guruList={datadikData.guruList}
-            isLoadingGuru={datadikData.isLoading}
-            onRefetchDatadik={() =>
-              fetchDatadik(parsedData?.school?.npsn || "", true)
-            }
             isDateEditable={true}
           />
 
