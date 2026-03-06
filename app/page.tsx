@@ -286,6 +286,65 @@ export default function Home() {
     }
   }, [dacAuthenticated, dataSourceAuthenticated]);
 
+  // Realtime Polling for Pending Data
+  useEffect(() => {
+    if (!dacAuthenticated || !dataSourceAuthenticated) return;
+
+    const intervalId = setInterval(async () => {
+      const dsSession = localStorage.getItem("datasource_session");
+      if (!dsSession) return;
+      try {
+        const res = await fetch("/api/datasource/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cookie: dsSession }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          let filtered = json.data.filter(
+            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+          );
+          if (
+            typeof window !== "undefined" &&
+            window.location.search.includes("reverse=true")
+          ) {
+            filtered.reverse();
+          }
+
+          const currentItem = sheetData[currentTaskIndex];
+
+          if (!currentItem) {
+            setSheetData(filtered);
+            setCurrentTaskIndex(0);
+            return;
+          }
+
+          const newIndex = filtered.findIndex(
+            (item: any) =>
+              item.serial_number === currentItem.serial_number &&
+              item.npsn === currentItem.npsn,
+          );
+
+          if (newIndex !== -1) {
+            // Item is still pending, update list and adjust index to avoid disrupting the active task
+            setSheetData(filtered);
+            setCurrentTaskIndex(newIndex);
+          } else {
+            // Active item is no longer in the pending list (e.g. processed by someone else)
+            // Keep it locally so the user doesn't lose work, but append the updated queue
+            const merged = [currentItem, ...filtered];
+            setSheetData(merged);
+            setCurrentTaskIndex(0);
+          }
+        }
+      } catch (e) {
+        console.error("Background polling error:", e);
+      }
+    }, 15000); // Poll every 15 seconds
+
+    return () => clearInterval(intervalId);
+  }, [dacAuthenticated, dataSourceAuthenticated, sheetData, currentTaskIndex]);
+
   // Navigate/Auto-select Logic
   useEffect(() => {
     if (sheetData.length > 0) {
@@ -336,52 +395,34 @@ export default function Home() {
 
   const fetchScrapedData = async () => {
     const dsSession = localStorage.getItem("datasource_session");
-    // We can filter by username/verifikator if needed, but for now grab all or server filters
-    // const username = localStorage.getItem('username');
-
     if (!dsSession) return;
-    const cachedData = localStorage.getItem("cached_scraped_data");
-    if (cachedData) {
-      try {
-        const parsedCache = JSON.parse(cachedData);
-        if (Array.isArray(parsedCache) && parsedCache.length > 0) {
-          console.log("Menggunakan data dari Cache LocalStorage");
-          setSheetData(parsedCache);
-          setCurrentTaskIndex(0);
-          return; // Hentikan fungsi di sini, tidak perlu fetch API
-        }
-      } catch (e) {
-        console.error("Gagal parse data cache", e);
-      }
-    } else {
-      try {
-        const res = await fetch("/api/datasource/scrape", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cookie: dsSession,
-          }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          const filtered = json.data.filter(
-            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
-          );
+    try {
+      const res = await fetch("/api/datasource/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cookie: dsSession,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const filtered = json.data.filter(
+          (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+        );
 
-          if (
-            typeof window !== "undefined" &&
-            window.location.search.includes("reverse=true")
-          ) {
-            filtered.reverse();
-          }
-          setSheetData(filtered);
-          setCurrentTaskIndex(0);
-        } else {
-          console.error("Failed to fetch scraped data:", json.message);
+        if (
+          typeof window !== "undefined" &&
+          window.location.search.includes("reverse=true")
+        ) {
+          filtered.reverse();
         }
-      } catch (e) {
-        console.error("Error fetching scraped data:", e);
+        setSheetData(filtered);
+        setCurrentTaskIndex(0);
+      } else {
+        console.error("Failed to fetch scraped data:", json.message);
       }
+    } catch (e) {
+      console.error("Error fetching scraped data:", e);
     }
   };
 
@@ -496,6 +537,20 @@ export default function Home() {
     }
   };
 
+  const formatDateOnly = (isoString: string): string => {
+    if (!isoString) return "-";
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return isoString;
+    }
+  };
+
   const setParsedDataFromJSON = (json: any, item: any) => {
     if (json.success) {
       const { summary, awb, comments, perbaikan, extractedId } = json.data;
@@ -523,7 +578,11 @@ export default function Home() {
 
       const allImages = [...mappedImages, ...perbaikanImages];
 
-      setVerificationDate(fetchedDate);
+      const bappDateString = summary?.bapp_date
+        ? summary.bapp_date.substring(0, 10)
+        : fetchedDate;
+
+      setVerificationDate(bappDateString);
       // Jika Signature & Photo utama tidak masuk di ListPhotoJSON, tambahkan manual
 
       const historyComments = (comments || []).map((c: any) => ({
@@ -546,18 +605,17 @@ export default function Home() {
           nama_barang: summary.school_name || "-",
         },
         images: allImages,
-        // Gabungkan riwayat logistik (AWB) dan riwayat approval (Comment) jika perlu
-        // Di sini kita tampilkan riwayat logistik dari awb.History
         history: [...historyComments],
         extractedId: extractedId,
         resi: awb.ConnoteNumber || summary.nomor_resi,
         bapp_id: summary.bapp_id,
-        bapp_date: fetchedDate,
+        bapp_date: summary.bapp_date || fetchedDate,
       });
 
       // Auto-open image viewer if images are available
       if (allImages.length > 0 && autoOpenImageRef.current) {
         setCurrentImageIndex(0);
+        setImageRotation(0);
       }
 
       // Auto-reject jika foto sangat sedikit (< 3 gambar = dokumentasi tidak lengkap)
@@ -968,31 +1026,6 @@ export default function Home() {
         const json = await res.json();
 
         if (json.success) {
-          // --- LOGIKA UPDATE LOCAL STORAGE (DARI STASHED) ---
-          const cachedData = localStorage.getItem("cached_scraped_data");
-          if (cachedData) {
-            try {
-              let parsedCache = JSON.parse(cachedData);
-              const indexToRemove = parsedCache.findIndex(
-                (c: any) =>
-                  c.npsn === item.npsn && c.no_bapp === item.no_bapp,
-              );
-
-              if (indexToRemove !== -1) {
-                parsedCache.splice(indexToRemove, 1);
-                localStorage.setItem(
-                  "cached_scraped_data",
-                  JSON.stringify(parsedCache),
-                );
-
-                // Sinkronisasi UI
-                setSheetData(parsedCache);
-                setCurrentTaskIndex(0);
-              }
-            } catch (e) {
-              console.error("Gagal update cache lokal setelah submit", e);
-            }
-          }
 
           console.log(
             `Submitted ${item.npsn} (${shouldWaitUser ? "Manual Note" : "Background"})`,
@@ -1321,22 +1354,33 @@ export default function Home() {
     await submitToDataSource(false);
   };
   const handleSkip = (skipped: boolean) => {
-    // Jika data tinggal 1 atau tidak ada, tidak perlu memindahkan urutan
+    // Jika data tinggal 1 atau tidak ada, tidak perlu memindahkan urutan/menghapus jika skip
     if (sheetData.length <= 1) {
       if (sheetData.length === 1) {
-        // Opsional: Beri notifikasi jika hanya sisa 1 data
-        console.log("Hanya tersisa 1 data, tidak bisa skip ke belakang.");
+        if (!skipped) {
+          // Data terakhir berhasil diproses, kosongkan state
+          setSheetData([]);
+          setParsedData(null);
+        } else {
+          // Opsional: Beri notifikasi jika hanya sisa 1 data
+          console.log("Hanya tersisa 1 data, tidak bisa skip ke belakang.");
+        }
       }
       return;
     }
 
-    // 1. Ambil data yang sedang aktif (yang akan di-skip)
+    // 1. Ambil data yang sedang aktif (yang akan di-skip/diproses)
     const currentItem = sheetData[currentTaskIndex];
 
-    // 2. Buat list baru dengan memindahkan currentItem ke posisi paling belakang
+    // 2. Buat list baru (hapus dari posisi saat ini)
     const newSheetData = [...sheetData];
-    newSheetData.splice(currentTaskIndex, 1); // Hapus dari posisi saat ini
-    newSheetData.push(currentItem); // Masukkan ke posisi terakhir
+    newSheetData.splice(currentTaskIndex, 1);
+
+    // Jika hanya menekan "Skip", masukkan ke posisi terakhir.
+    // Jika memproses (Terima/Tolak), JANGAN dimasukkan kembali agar antrean instant berkurang.
+    if (skipped) {
+      newSheetData.push(currentItem);
+    }
 
     // 3. Ambil item yang sekarang menjadi urutan pertama (untuk update UI)
     const nextItem = newSheetData[0];
@@ -1352,9 +1396,6 @@ export default function Home() {
     // Kita reset ke 0 karena kita ingin selalu memproses item paling atas
     setSheetData(newSheetData);
     setCurrentTaskIndex(0);
-
-    // 6. Sinkronisasi ke LocalStorage (Agar urutan baru tersimpan saat refresh)
-    localStorage.setItem("cached_scraped_data", JSON.stringify(newSheetData));
 
     // 7. Load Detail Data untuk item baru di index 0
     const cacheKey = `${nextItem.npsn}_${nextItem.no_bapp}`;
@@ -1497,6 +1538,11 @@ export default function Home() {
                     label="Serial Number"
                     value={parsedData.item.serial_number}
                   />
+                  <InfoItem
+                    label="Tanggal BAPP"
+                    value={parsedData.bapp_date ? formatDateOnly(parsedData.bapp_date) : "-"}
+                  />
+
                 </div>
               </div>
               {/* Log Approval Section */}
@@ -1750,14 +1796,9 @@ export default function Home() {
                 }));
               }
             }}
-            // Datadik Props
-            kepsek={datadikData.kepsek}
-            guruList={datadikData.guruList}
-            isLoadingGuru={datadikData.isLoading}
-            onRefetchDatadik={() =>
-              fetchDatadik(parsedData?.school?.npsn || "", true)
-            }
             isDateEditable={true}
+            bapp_date={parsedData.bapp_date}
+
           />
 
           <div
