@@ -87,6 +87,8 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   // Submission Queue — tracks background submissions in order
   const [submissionQueue, setSubmissionQueue] = useState<Array<{ npsn: string; sn: string }>>([]);
+  // Keep track of all items processed in this session to prevent redundancy in polling
+  const processedItemsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const storedPos = localStorage.getItem("sidebar_layout");
@@ -286,7 +288,10 @@ export default function Home() {
     }
   }, [dacAuthenticated, dataSourceAuthenticated]);
 
-  // Realtime Polling for Pending Data
+  // Realtime Polling for Pending Data (DISABLED)
+  // Polling was causing redundancy when async submission took longer
+  // than the polling interval, leading to re-fetching the same items.
+  /*
   useEffect(() => {
     if (!dacAuthenticated || !dataSourceAuthenticated) return;
 
@@ -302,7 +307,7 @@ export default function Home() {
         const json = await res.json();
         if (json.success) {
           let filtered = json.data.filter(
-            (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+            (item: any) => item.type === "Zyrex" && item.status === "PROSES" && !processedItemsRef.current.has(`${item.npsn}_${item.serial_number}`),
           );
           if (
             typeof window !== "undefined" &&
@@ -344,6 +349,7 @@ export default function Home() {
 
     return () => clearInterval(intervalId);
   }, [dacAuthenticated, dataSourceAuthenticated, sheetData, currentTaskIndex]);
+  */
 
   // Navigate/Auto-select Logic
   useEffect(() => {
@@ -407,7 +413,7 @@ export default function Home() {
       const json = await res.json();
       if (json.success) {
         const filtered = json.data.filter(
-          (item: any) => item.type === "Zyrex" && item.status === "PROSES",
+          (item: any) => item.type === "Zyrex" && item.status === "PROSES" && !processedItemsRef.current.has(`${item.npsn}_${item.serial_number}`),
         );
 
         if (
@@ -903,14 +909,17 @@ export default function Home() {
   }, [currentImageIndex, parsedData]);
 
   const submitToDataSource = async (isApproved: boolean) => {
-    // Prevent double clicking or exceeding queue limit
-    if (isSubmitting || isSubmittingRef.current || submissionQueue.length >= 2) return;
+    // Prevent double clicking
+    if (isSubmitting || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
 
     const session = localStorage.getItem("datasource_session");
     if (!session || !parsedData || sheetData.length === 0) return;
 
     const currentItem = sheetData[currentTaskIndex];
+    if (currentItem) {
+      processedItemsRef.current.add(`${currentItem.npsn}_${currentItem.serial_number}`);
+    }
 
     // 1. Disable Buttons Immediately
     setIsSubmitting(true);
@@ -960,9 +969,6 @@ export default function Home() {
       setIsSubmitting(false); // Re-enable UI for Modal interaction
     } else {
       // FAST PATH: Optimistic Update
-      // Push to queue before starting background process
-      const queueItem = { npsn: currentItem.npsn, sn: currentItem.serial_number };
-      setSubmissionQueue(prev => [...prev, queueItem]);
 
       // Start the background process and wait for it to finish
       handleSubmissionProcess(
@@ -971,10 +977,7 @@ export default function Home() {
         currentItem,
         parsedData,
         false, // shouldWaitUser
-      ).finally(() => {
-        // Remove the specific item from the queue
-        setSubmissionQueue(prev => prev.filter(i => i.npsn !== queueItem.npsn || i.sn !== queueItem.sn));
-      });
+      );
 
       // Optimistic Skip
       handleSkip(false);
